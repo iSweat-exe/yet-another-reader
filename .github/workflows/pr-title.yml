@@ -22,7 +22,7 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: amannn/action-semantic-pull-request@v5
+      - uses: amannn/action-semantic-pull-request@v6
         id: lint
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -46,7 +46,7 @@ jobs:
             The description "{subject}" must start with a lower-case letter: "fix(reader): follow replays".
 
       - name: Add the type label
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           TYPE: ${{ steps.lint.outputs.type }}
           BREAKING: ${{ contains(github.event.pull_request.title, '!:') }}
