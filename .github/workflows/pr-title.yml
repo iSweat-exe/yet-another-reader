@@ -13,6 +13,9 @@ permissions:
 jobs:
   title:
     name: Conventional title
+    # Dependabot writes its own titles ("chore(deps): Bump x from a to b"), which are fine but start with a capital.
+    # A skipped job counts as passed for the required check.
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

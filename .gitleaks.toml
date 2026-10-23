@@ -15,3 +15,5 @@ keywords = ["dW50cnVzdGVkIGNvbW1lbnQ6IHJzaWduIGVuY3J5cHRlZCBzZWNyZXQga2V5"]
 [allowlist]
 description = "The public key of the updater is meant to be in the repository (it verifies updates, it cannot sign them)"
 paths = ['''src-tauri/tauri\.conf\.json''']
+# The example `Sec-WebSocket-Key` of RFC 6455 ("the sample nonce"), sent by the WebSocket tests: not a secret.
+regexes = ['''dGhlIHNhbXBsZSBub25jZQ==''']

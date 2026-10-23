@@ -12,6 +12,10 @@ updates:
     labels: [dependencies, javascript, skip-changelog]
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # A major version of TypeScript is moved by hand, once the tools around it follow.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
     groups:
       react:
         patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
@@ -31,6 +35,11 @@ updates:
     labels: [dependencies, rust, skip-changelog]
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # Tauri, wry and webview2-com pin one version of `windows`: bumping it alone breaks the build (the types of
+      # two versions do not mix). It moves when Tauri's own update brings it.
+      - dependency-name: windows
+      - dependency-name: windows-core
     groups:
       tauri:
         patterns: ["tauri", "tauri-*", "wry", "tao", "webview2-com*", "windows*"]
