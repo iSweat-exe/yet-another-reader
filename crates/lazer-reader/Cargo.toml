@@ -18,7 +18,7 @@ rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", rev = "072ed255fa043aba49
 
 [target.'cfg(windows)'.dependencies]
 windows-core = "0.61"
-windows = { version = "0.61", features = [
+windows = { version = "0.62", features = [
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
   "Win32_Storage_FileSystem",
