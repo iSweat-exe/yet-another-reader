@@ -28,7 +28,7 @@ jobs:
         # The workflows themselves are code too (injection through titles, untrusted checkouts...).
         language: [javascript-typescript, actions]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
