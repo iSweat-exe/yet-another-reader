@@ -1,0 +1,95 @@
+name: Bug
+description: Something does not work as documented
+labels: ["type: bug", "status: needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Nothing here needs your game files or your account.** Do not paste tokens or private data.
+        Check the [Troubleshooting page](https://github.com/iSweat-exe/yet-another-reader/blob/main/docs/en/TROUBLESHOOTING.md) first: the **Status** tab of the app also shows what the reader is doing.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: In order, as short as you can. A replay, a map, a mod? Say which.
+      placeholder: |
+        1. Open osu!lazer, play a map with DT
+        2. Open the Status tab
+        3. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where
+      options:
+        - Reading the game (wrong or missing values)
+        - In-game overlay
+        - Layout editor
+        - Widgets (built-in or community)
+        - Local API (REST or WebSocket)
+        - Settings or Status tab
+        - Updates
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: Settings > Updates > Installed version.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: lazer-version
+    attributes:
+      label: osu!lazer version
+      description: Shown on the Status tab once connected, e.g. 2026.1005.0-lazer.
+    validations:
+      required: false
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 23H2
+    validations:
+      required: false
+
+  - type: textarea
+    id: journal
+    attributes:
+      label: Journal
+      description: Status tab > Debug > Journal > the copy button, then paste here. It contains no personal data.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: more
+    attributes:
+      label: Screenshots or anything else
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before sending
+      options:
+        - label: I looked for an existing report of the same problem.
+          required: true

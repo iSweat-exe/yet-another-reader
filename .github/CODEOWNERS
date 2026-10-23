@@ -1,0 +1,12 @@
+# Who is asked to review what. The last matching line wins.
+# Branch rules (.github/rulesets/main.json) can require a code owner's review: turn it on when there are
+# several maintainers.
+
+*                         @iSweat-exe
+
+# What can hurt users or the supply chain gets a named owner, so it is never merged by accident.
+/.github/                 @iSweat-exe
+/src-tauri/tauri.conf.json @iSweat-exe
+/src-tauri/src/updater.rs @iSweat-exe
+/crates/lazer-reader/     @iSweat-exe
+/scripts/                 @iSweat-exe

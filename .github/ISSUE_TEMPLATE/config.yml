@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/iSweat-exe/yet-another-reader/tree/main/docs/en
+    about: Usage, widgets, the local API and troubleshooting. The same pages are in the app (Documentation tab).
+  - name: Report a vulnerability
+    url: https://github.com/iSweat-exe/yet-another-reader/security/advisories/new
+    about: Privately, please. Do not open a public issue for a security problem.

@@ -1,0 +1,102 @@
+name: Release
+
+# Pushing a tag `vX.Y.Z` (or `vX.Y.Z-rc.1` for a pre-release) builds the signed installer and prepares a DRAFT
+# release with the update manifest (`latest.json`) the installed apps look for. Publishing the draft is what
+# makes the update available to everyone: look at it first. See .github/RELEASING.md.
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+", "v[0-9]+.[0-9]+.[0-9]+-*"]
+
+# Never two releases at once, and never cancel one half way.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  verify:
+    name: Verify the tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # The tag, package.json, tauri.conf.json, Cargo.toml and Cargo.lock must all carry the same version.
+      - name: The tag matches the version of the app
+        run: node scripts/version.mjs check --tag "$GITHUB_REF_NAME"
+
+      # A release comes from main, never from a side branch.
+      - name: The tag is on main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME is not on main. Merge the pull request first, then tag the merge commit."
+            exit 1
+          fi
+
+  build:
+    name: Build and draft the release
+    needs: verify
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write # creates the draft release and uploads its files
+      id-token: write # build provenance (who built this file, from which commit)
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: npm ci
+
+      - name: Build, sign and upload
+        id: tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The private key of the updater: without it the build refuses to make updater files. Set both as
+          # repository secrets (Settings > Secrets and variables > Actions), see .github/RELEASING.md.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Yet Another Reader ${{ github.ref_name }}
+          releaseBody: Notes are being generated.
+          releaseDraft: true
+          # `v1.2.0-rc.1` and the like are pre-releases: they are not what "latest" (so the updater) points to.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+
+      - name: Attest the installer
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: target/release/bundle/nsis/*-setup.exe
+
+      # The notes are written from the pull requests merged since the last release, grouped by label
+      # (.github/release.yml). They stay editable in the draft.
+      - name: Write the release notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.tauri.outputs.releaseId }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" -f tag_name="${GITHUB_REF_NAME}" --jq .body > notes.md
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" -F body=@notes.md > /dev/null

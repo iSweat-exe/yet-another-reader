@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hello score</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+      body {
+        color: var(--color, #f472b6);
+        font: 700 var(--size, 56px) / 1 system-ui, sans-serif;
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 1px 3px rgb(0 0 0 / 0.85);
+      }
+      #label { font-size: 0.32em; opacity: 0.8; letter-spacing: 0.08em; }
+      #acc { font-size: 0.45em; opacity: 0.9; }
+    </style>
+  </head>
+  <body>
+    <div id="label">SCORE</div>
+    <div id="score">0</div>
+    <div id="acc"></div>
+
+    <script>
+      // The overlay passes the API address and the widget options in the query string, and
+      // sends `{ type: "yar:options", options }` messages when the user edits them live.
+      const params = new URLSearchParams(location.search);
+      const api = params.get("api") || "http://127.0.0.1:24051";
+      let options = JSON.parse(params.get("options") || "{}");
+
+      const el = (id) => document.getElementById(id);
+      let last = null;
+
+      function applyOptions() {
+        document.body.style.setProperty("--color", options.color ?? "#f472b6");
+        document.body.style.setProperty("--size", `${options.size ?? 56}px`);
+        el("label").textContent = options.label ?? "SCORE";
+        render(last);
+      }
+
+      function render(state) {
+        last = state;
+        const play = state?.gameplay;
+        el("score").textContent = play ? play.score.toLocaleString("en-US") : "0";
+        el("acc").textContent = play && options.showAccuracy !== false ? `${(play.accuracy * 100).toFixed(2)}%` : "";
+      }
+
+      window.addEventListener("message", (event) => {
+        if (event.data?.type === "yar:options") {
+          options = event.data.options ?? {};
+          applyOptions();
+        }
+      });
+
+      function connect() {
+        const ws = new WebSocket(api.replace("http", "ws") + "/api/v1/ws?topics=gameplay&events=false");
+        ws.onmessage = (e) => {
+          const msg = JSON.parse(e.data);
+          if (msg.type === "hello" || msg.type === "state") render(msg.data);
+        };
+        ws.onclose = () => setTimeout(connect, 1000);
+      }
+
+      applyOptions();
+      connect();
+    </script>
+  </body>
+</html>

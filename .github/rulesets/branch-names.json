@@ -1,0 +1,29 @@
+{
+  "name": "branches: names follow the commit types",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["~ALL"],
+      "exclude": ["~DEFAULT_BRANCH", "refs/heads/dependabot/**"]
+    }
+  },
+  "bypass_actors": [
+    {
+      "actor_id": 5,
+      "actor_type": "RepositoryRole",
+      "bypass_mode": "always"
+    }
+  ],
+  "rules": [
+    {
+      "type": "branch_name_pattern",
+      "parameters": {
+        "name": "type/short-description, in lower case",
+        "negate": false,
+        "operator": "regex",
+        "pattern": "^(feat|fix|perf|docs|refactor|test|build|ci|chore|security|release|revert)/[a-z0-9][a-z0-9._-]*$"
+      }
+    }
+  ]
+}

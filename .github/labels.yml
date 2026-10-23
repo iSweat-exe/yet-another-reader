@@ -1,0 +1,136 @@
+# The labels of the repository. The workflow .github/workflows/labels.yml makes GitHub match this file
+# (labels not listed here are removed), so change labels HERE, not in the web interface.
+#
+# Families:  type:  what the change or report is        area:  where in the project
+#            status: where a report stands              priority: how soon
+# The release notes (.github/release.yml) are grouped by the `type:` labels.
+
+# --- type ----------------------------------------------------------------------------------
+- name: "type: bug"
+  color: d73a4a
+  description: Something does not work as documented
+- name: "type: feature"
+  color: 0e8a16
+  description: A new capability
+- name: "type: enhancement"
+  color: 84b6eb
+  description: An improvement to something that already exists
+- name: "type: performance"
+  color: fbca04
+  description: Makes the app lighter or faster (reader loops, overlay, startup)
+- name: "type: security"
+  color: b60205
+  description: A vulnerability or a hardening
+- name: "type: docs"
+  color: 0075ca
+  description: Documentation only
+- name: "type: refactor"
+  color: c5def5
+  description: Restructures code without changing behaviour
+- name: "type: chore"
+  color: ededed
+  description: Maintenance, tooling, dependencies
+- name: "type: question"
+  color: d876e3
+  description: A usage question (the Discussions or the docs may answer it)
+
+# --- area ----------------------------------------------------------------------------------
+- name: "area: reader"
+  color: 1d76db
+  description: Reading osu!lazer (crates/lazer-reader)
+- name: "area: api"
+  color: 1d76db
+  description: The local REST and WebSocket API (crates/overlay-server)
+- name: "area: overlay"
+  color: 1d76db
+  description: The in-game overlay window and RTSS
+- name: "area: editor"
+  color: 1d76db
+  description: The layout editor
+- name: "area: widgets"
+  color: 1d76db
+  description: Built-in and community widgets
+- name: "area: ui"
+  color: 1d76db
+  description: The main window (Status, Settings, shared components)
+- name: "area: docs"
+  color: 1d76db
+  description: The documentation (docs/ and the Documentation tab)
+- name: "area: i18n"
+  color: 1d76db
+  description: Translations (French and English)
+- name: "area: updater"
+  color: 1d76db
+  description: Automatic updates and releases
+- name: "area: ci"
+  color: 1d76db
+  description: GitHub Actions, scripts, repository settings
+
+# --- status --------------------------------------------------------------------------------
+- name: "status: needs triage"
+  color: f9d0c4
+  description: Not looked at yet
+- name: "status: needs info"
+  color: fef2c0
+  description: Waiting for details from the author (closes by itself after a few weeks)
+- name: "status: confirmed"
+  color: 0e8a16
+  description: Reproduced or accepted
+- name: "status: in progress"
+  color: 5319e7
+  description: Someone is working on it
+- name: "status: blocked"
+  color: 000000
+  description: Waiting on something else
+- name: "status: duplicate"
+  color: cfd3d7
+  description: Already reported or requested
+- name: "status: wontfix"
+  color: ffffff
+  description: Will not be done (the reason is in the comments)
+
+# --- priority ------------------------------------------------------------------------------
+- name: "priority: critical"
+  color: b60205
+  description: Data loss, crash at startup, or a security problem
+- name: "priority: high"
+  color: d93f0b
+  description: Breaks a main use of the app
+- name: "priority: medium"
+  color: fbca04
+  description: Should be done soon
+- name: "priority: low"
+  color: c2e0c6
+  description: Nice to have
+
+# --- other ---------------------------------------------------------------------------------
+- name: "game compatibility"
+  color: ff66aa
+  description: osu!lazer changed and the reader no longer matches (a new version of the game)
+- name: breaking-change
+  color: b60205
+  description: Changes the public API, the layout format or the settings in a way that is not backward compatible
+- name: good first issue
+  color: 7057ff
+  description: A good place to start contributing
+- name: help wanted
+  color: 008672
+  description: Extra attention is welcome
+- name: dependencies
+  color: 0366d6
+  description: Updates a dependency
+- name: rust
+  color: dea584
+  description: Rust code or crates
+- name: javascript
+  color: f1e05a
+  description: JavaScript or TypeScript code or packages
+- name: github_actions
+  color: 000000
+  description: Updates a GitHub Action
+- name: skip-changelog
+  color: ededed
+  description: Left out of the release notes
+- name: release
+  color: 0e8a16
+  description: Prepares or concerns a release

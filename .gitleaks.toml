@@ -1,0 +1,17 @@
+# Configuration of the secret scan (.github/workflows/security.yml). It starts from the default rules and adds one
+# for the thing this repository must never contain: the private key of the updater.
+title = "yet-another-reader"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "tauri-updater-private-key"
+description = "Private key used to sign updates (the file .secret/updater.key)"
+# The key file is base64 of "untrusted comment: rsign encrypted secret key" followed by the key itself.
+regex = '''dW50cnVzdGVkIGNvbW1lbnQ6IHJzaWduIGVuY3J5cHRlZCBzZWNyZXQga2V5[A-Za-z0-9+/=\s]{40,}'''
+keywords = ["dW50cnVzdGVkIGNvbW1lbnQ6IHJzaWduIGVuY3J5cHRlZCBzZWNyZXQga2V5"]
+
+[allowlist]
+description = "The public key of the updater is meant to be in the repository (it verifies updates, it cannot sign them)"
+paths = ['''src-tauri/tauri\.conf\.json''']

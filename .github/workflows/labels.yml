@@ -1,0 +1,28 @@
+name: Sync labels
+
+# Makes the labels of the repository match .github/labels.yml.
+on:
+  push:
+    branches: [main]
+    paths: [".github/labels.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Sync labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write # labels are managed through the issues API
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EndBug/label-sync@v2
+        with:
+          config-file: .github/labels.yml
+          # The file is the whole truth: a label it does not list is removed (from the issues that carry it too).
+          delete-other-labels: true
+          token: ${{ secrets.GITHUB_TOKEN }}

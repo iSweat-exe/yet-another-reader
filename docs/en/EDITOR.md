@@ -1,0 +1,181 @@
+# Editor
+
+The **Editor** tab composes the overlay with the mouse, using the real widgets on simulated data (or live
+data). For a step-by-step guide, see [Create an overlay](CREATE_OVERLAY.md).
+
+## Overview
+
+| Area | Content |
+| --- | --- |
+| **Top bar** | Layout choice, **Use in game**, new / duplicate / rename / import / export / delete, saving state. |
+| **Toolbar** | Undo / redo, alignment, spacing, groups, snapping, grid, screen format, data source, auto-save. |
+| **Left** | The widget palette: **Built-in** (by category) and **Community**. A click adds the widget. |
+| **Centre** | The **page** tabs, the preview screen, and the reminder of shortcuts. |
+| **Right, top** | The **Properties** of the selection. |
+| **Right, bottom** | The **Layers**. |
+
+> [!SCREENSHOT] editor-overview
+> Full editor window with the "Classic" layout loaded. Number the six zones of the table as an overlay: 1 top bar, 2
+> toolbar, 3 widget palette, 4 preview screen with the page tabs, 5 properties, 6 layers.
+
+The separators between the panels can be moved with the mouse; a double-click puts them back at their
+original size.
+
+## Pages
+
+A layout covers every moment of the game. The editor shows **one page at a time**: *Playing*, *Paused*,
+*Break*, *Song select*, *Results*, *Main menu* (the number next to each tab is the number of widgets on it).
+A widget that is added goes on the displayed page; its properties let you show it on other pages. See
+[Layout format](LAYOUT.md) for details.
+
+> [!SCREENSHOT] page-tabs
+> The six page tabs (Playing, Paused, Break, Song select, Results, Main menu), each with its widget count next to the
+> name; the Playing tab active. Crop on the row of tabs.
+
+## Selecting, moving, resizing
+
+- **Click** a widget: selects it. `Shift` or `Ctrl` + click: adds it to or removes it from the selection.
+- **Selection rectangle**: drag over the empty screen. `Ctrl + A` selects everything.
+- **Drag**: moves the selection. The **handles** of a single widget resize it; `Shift` keeps its proportions.
+- **Snapping**: the widget aligns to the edges and centres of the screen and of the other widgets (guide
+  lines). `Alt` turns it off while dragging. The optional **Grid** (10 px) helps placement.
+- **Arrows**: move by one pixel (`Shift`: 10).
+
+> [!SCREENSHOT] selection-handles
+> A single widget selected on the preview screen: pink frame, eight white handles (corners and mid-points), a pink label
+> with its name above. Next to it, a translucent blue selection rectangle in the middle of enclosing two other widgets.
+
+> [!TIP] To move a widget without it snapping to its neighbours, hold `Alt` while dragging.
+
+## Automatic anchor
+
+You do not have to choose an anchor. When you move, resize, align, add or paste a widget, the editor attaches
+it on its own to the area of the screen where it sits: a widget near the right edge becomes anchored to the
+right and stays there on a wider screen.
+
+To force an anchor, choose it in the 3×3 selector of the **Properties**: it is then **fixed** and no longer
+follows the position. Untick then tick **Automatic anchor** to go back to automatic mode. The **screen format**
+(16:9, 21:9, 16:10, 4:3, 32:9) lets you check that the layout fits everywhere.
+
+> [!SCREENSHOT] anchor-selector
+> **Placement** section of the Properties: the 3×3 anchor selector with "Top right" in pink, the X, Y, W, H fields, and
+> the "Automatic anchor" switch with its help text. Show the on state then the off state (anchor fixed) side by side.
+
+## Alignment
+
+The **Align** buttons (left, centre, right, top, middle, bottom) act on the selection: **one** object aligns to
+the screen, **several** align to their common bounding box.
+
+> [!SCREENSHOT] align-buttons
+> Toolbar cropped on the "Alignment" group: the six buttons (left, centre, right, top, middle, bottom) with the "Align
+> left" tooltip visible on the first, and three widgets before / after a left alignment as an inset.
+
+## Spacing
+
+With **at least two objects** selected, **Properties → Spacing** sets the gap between them:
+
+- **Horizontal gap** / **Vertical gap**: the current gap between neighbours (the average if it is uneven).
+  Enter a value: all objects are spaced evenly, from the first to the last, **the first staying in place**. A
+  negative value makes them overlap.
+- **Distribute horizontally / vertically** (also in the toolbar): evens out the gaps while keeping the two
+  end objects in place. It needs **three objects** or more.
+
+> [!SCREENSHOT] spacing-panel
+> Three widgets selected on a line, unevenly spaced (before) then evenly (after distributing). On the right, the
+> **Spacing** section with the two gap fields and the Distribute horizontally / vertically buttons. Two images side by
+> side.
+
+A **group** counts as **one object**; locked objects do not move. Successive entries in a spacing field form
+a single undo step.
+
+## Groups
+
+A group gathers several widgets into **one object**: it is selected, moved, aligned and spaced as one block.
+
+| Action | How |
+| --- | --- |
+| **Group** | `Ctrl + G` with at least two widgets selected (or the **Group** button). |
+| **Ungroup** | `Ctrl + Shift + G` (or the **Ungroup** button). |
+| **Select the group** | Click one of its widgets on the screen, or its line in the **Layers**. |
+| **Select a single member** | Expand the group in the **Layers** (chevron) and click the widget. |
+
+> [!SCREENSHOT] groups-layers
+> **Layers** panel with an expanded "Group 1" line: chevron, group icon, counter "4", hover buttons (ungroup, move up,
+> move down, lock) and its four widgets indented below. On the preview screen, the dashed frame around the selected
+> group.
+
+In the **Layers**, a group is **a single line**: a chevron expands it, a counter gives the number of widgets,
+and buttons let you ungroup it, move it up or down one block, and lock it. The members of a group form a
+contiguous block in the stacking order. Duplicating or copying a group creates a **new** one, without merging
+with the original. A group that no longer contains more than one widget is dissolved automatically.
+
+## Widget properties
+
+| Section | Content |
+| --- | --- |
+| Header | The **Name** shown in the editor, duplicate, delete. |
+| **Placement** | Anchor (3×3), `X`, `Y`, `W`, `H`, **Automatic anchor**. |
+| **Pages** | The pages where the widget is displayed (at least one). |
+| **Style** | Colour, **Text size** (multiplier), **Opacity**, **Text alignment** (auto = follows the anchor), **Animate numbers** and its duration. |
+| **Options** | For a community widget: the options of its manifest. |
+
+> [!SCREENSHOT] properties-panel
+> Complete **Properties** panel of a Score widget, the whole panel visible (in two images if needed): header with the
+> name, Placement, Pages (six switches), Style. Label each section with its name from the table.
+
+## Layers
+
+The layers list the widgets **of the displayed page**, from the front to the back. Each line lets you **move up /
+down** the widget in the stacking order and **lock** it (a locked widget can neither be moved nor deleted).
+
+> [!SCREENSHOT] layers-panel
+> **Layers** panel of the Playing page: about ten widgets from front to back, one hovered line showing the move up /
+> move down / lock buttons, another with the closed padlock (locked widget) always visible.
+
+## Managing several layouts
+
+Create as many named layouts as you like: **New…** (**Classic**, **Minimal** or **Empty** template),
+**Duplicate…**, **Rename…**, **Delete**. **Use in game** chooses the one the overlay displays (the **Active in
+game** badge marks the active one).
+
+> [!SCREENSHOT] layout-management
+> Top bar with the layout list open (default, Stream, Minimal, the active layout ticked) and, on the right, the New,
+> Duplicate, Rename, Import, Export, Delete buttons, the tooltip of one of them visible.
+
+**Import / export**: **Export…** gives the JSON of the layout (to copy or download); **Import…** accepts pasted
+JSON or a file. This is how you share a layout.
+
+## Saving
+
+With **Auto-save**, each change is saved half a second later and the in-game overlay picks it up live. Without it,
+`Ctrl + S` saves. The state ("Saved", "Unsaved changes") is shown at the top right.
+
+> [!SCREENSHOT] save-state
+> Two cropped details side by side: at the top right of the top bar, the green "Saved" indicator with its tick; and,
+> next to it, the amber "Unsaved changes" state. Under each, the "Auto-save" switch.
+
+## Preview data
+
+The **Data** menu chooses what the widgets show: **Simulated** (an animated fictional play, to work without the
+game) or **Live** (the real state of osu!lazer).
+
+## Shortcuts
+
+| Keys | Action |
+| --- | --- |
+| `Delete` / `Backspace` | Delete the selection |
+| `Ctrl + Z` / `Ctrl + Y` (or `Ctrl + Shift + Z`) | Undo / redo |
+| `Ctrl + C` / `Ctrl + V` / `Ctrl + D` | Copy / paste / duplicate |
+| `Ctrl + G` / `Ctrl + Shift + G` | Group / ungroup |
+| `Ctrl + A` | Select all |
+| Arrows (`Shift`: ×10) | Move the selection |
+| `Alt` while dragging | Turn snapping off |
+| `Shift` while resizing | Keep the proportions |
+| `Ctrl + S` | Save |
+| `Escape` | Deselect |
+
+> [!SCREENSHOT] shortcuts-bar
+> Shortcut strip at the bottom of the editor, cropped: the keys Delete, Ctrl Z / Ctrl Y, Ctrl C / Ctrl V / Ctrl D, Ctrl
+> G / Ctrl Shift G, arrows, Shift, Alt and Ctrl S with their labels.
+
+The shortcuts are inactive while you type in a field or while a dialogue box is open.

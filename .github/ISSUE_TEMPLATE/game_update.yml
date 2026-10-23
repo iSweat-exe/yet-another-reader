@@ -1,0 +1,41 @@
+name: An osu!lazer update broke the reader
+description: Values are missing or wrong since the game updated
+labels: ["game compatibility", "type: bug", "status: needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The reader finds the game's data by **names** of fields, which a new version of osu!lazer can change. This is the fastest way to tell us.
+
+  - type: input
+    id: lazer-version
+    attributes:
+      label: osu!lazer version
+      description: Help > About in the game, or the Status tab.
+      placeholder: 2026.1005.0
+    validations:
+      required: true
+
+  - type: input
+    id: previous-version
+    attributes:
+      label: Last version that worked
+    validations:
+      required: false
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What is wrong
+      description: Which values are missing or wrong (score, combo, keys, beatmap...), and on which screen of the game.
+    validations:
+      required: true
+
+  - type: textarea
+    id: journal
+    attributes:
+      label: Journal
+      description: Status tab > Debug > Journal > copy button. The lines about the reader are the useful ones.
+      render: text
+    validations:
+      required: true

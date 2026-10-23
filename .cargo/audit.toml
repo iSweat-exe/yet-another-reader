@@ -1,0 +1,12 @@
+# Settings of `cargo audit` (read locally and by the "Rust advisories" job of .github/workflows/security.yml).
+
+[advisories]
+# The `zip` crate 4.x is pulled in by `tauri-plugin-updater`, which uses it to unpack .zip updates on macOS and
+# Linux only. On Windows the updater runs the signed .exe installer and never extracts an archive, and these
+# advisories are about `ZipArchive::extract` (symlinks, Unix permission bits). They do not apply to this app.
+# Remove the three lines as soon as the updater plugin depends on `zip` 9 or later (check on each update of Tauri).
+ignore = [
+  "RUSTSEC-2026-0367",
+  "RUSTSEC-2026-0368",
+  "RUSTSEC-2026-0369",
+]

@@ -1,0 +1,26 @@
+# How GitHub writes the notes of a release ("Generate release notes"; the release workflow does it for you):
+# the merged pull requests since the last release, grouped by their `type:` label.
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+      - "type: chore"
+    authors:
+      - dependabot
+  categories:
+    - title: "Breaking changes"
+      labels: [breaking-change]
+    - title: "New"
+      labels: ["type: feature"]
+    - title: "Improved"
+      labels: ["type: enhancement", "type: performance"]
+    - title: "Fixed"
+      labels: ["type: bug", "game compatibility"]
+    - title: "Security"
+      labels: ["type: security"]
+    - title: "Documentation"
+      labels: ["type: docs"]
+    - title: "Dependencies"
+      labels: [dependencies]
+    - title: "Other changes"
+      labels: ["*"]

@@ -1,0 +1,41 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+.impeccable
+.claude
+CLAUDE.md
+.github/V1_CHECKLIST.md
+
+# Rust
+target
+src-tauri/gen/schemas
+
+# Secrets: the updater signing key lives in .secret and must never be committed
+.secret
+*.key
+*.pem
+.env
+.env.*
+!.env.example

@@ -1,0 +1,39 @@
+[package]
+name = "yet-another-reader"
+version = "0.1.0"
+description = "State reader and in-game overlay for osu!lazer"
+authors = ["iSweat-exe"]
+edition.workspace = true
+license.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "yet_another_reader_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+lazer-reader = { path = "../crates/lazer-reader" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+overlay-server = { version = "0.1.0", path = "../crates/overlay-server" }
+tokio = { version = "1.54.1", features = ["sync", "time"] }
+tauri-plugin-global-shortcut = "2.4.1"
+tauri-plugin-updater = "2"
+tauri-plugin-single-instance = "2"
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_Media", "Win32_System_Memory", "Win32_UI_WindowsAndMessaging"] }
+webview2-com = "0.39"
+windows-core = "0.62"
+
+
+
+
+[lints]
+workspace = true

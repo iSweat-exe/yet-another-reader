@@ -1,0 +1,58 @@
+name: Feature
+description: Suggest an idea
+labels: ["type: feature", "status: needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One idea per request.
+        The app **only reads** osu!lazer: it never writes to the game, injects code or simulates input. Requests that need any of that cannot be accepted.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way? Start from the need, not from the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How would it work? A sketch or a screenshot of another tool helps.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today
+      description: A workaround, another tool, a community widget?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where
+      options:
+        - In-game overlay
+        - Layout editor
+        - New built-in widget
+        - Data the reader exposes
+        - Local API
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before sending
+      options:
+        - label: I looked for an existing request.
+          required: true
+        - label: I would like to help build it.
+          required: false

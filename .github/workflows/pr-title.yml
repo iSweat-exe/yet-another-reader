@@ -1,0 +1,75 @@
+name: Pull request title
+
+# The title of a pull request becomes the commit message (squash merge) and then a line of the release notes,
+# so it follows Conventional Commits:  type(scope): what changes   e.g.  fix(reader): follow replays
+# This also adds the matching `type:` label. Like pr-labeler.yml it never checks out the pull request.
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  title:
+    name: Conventional title
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        id: lint
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            docs
+            refactor
+            test
+            build
+            ci
+            chore
+            revert
+            security
+          # No scope is imposed: the scopes in use (reader, overlay, editor...) are listed in CONTRIBUTING.
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The description "{subject}" must start with a lower-case letter: "fix(reader): follow replays".
+
+      - name: Add the type label
+        uses: actions/github-script@v7
+        env:
+          TYPE: ${{ steps.lint.outputs.type }}
+          BREAKING: ${{ contains(github.event.pull_request.title, '!:') }}
+        with:
+          script: |
+            const labels = {
+              feat: "type: feature",
+              fix: "type: bug",
+              perf: "type: performance",
+              docs: "type: docs",
+              refactor: "type: refactor",
+              security: "type: security",
+              chore: "type: chore",
+              build: "type: chore",
+              ci: "type: chore",
+              test: "type: chore",
+            };
+            const wanted = labels[process.env.TYPE];
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const current = (await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number })).data.map((l) => l.name);
+            // Only one `type:` label, the one the title says: a retitled pull request changes label.
+            for (const name of current.filter((n) => n.startsWith("type: ") && n !== wanted)) {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
+            }
+            const add = [];
+            if (wanted && !current.includes(wanted)) add.push(wanted);
+            if (process.env.BREAKING === "true" && !current.includes("breaking-change")) add.push("breaking-change");
+            if (add.length > 0) await github.rest.issues.addLabels({ owner, repo, issue_number, labels: add });

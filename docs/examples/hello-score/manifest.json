@@ -1,0 +1,14 @@
+{
+  "name": "Hello score",
+  "version": "1.0.0",
+  "author": "Yet Another Reader",
+  "description": "Minimal example: shows the live score and accuracy, with a configurable label and colour.",
+  "entry": "index.html",
+  "defaultSize": { "w": 420, "h": 140 },
+  "options": [
+    { "key": "label", "type": "string", "label": "Label", "default": "SCORE" },
+    { "key": "color", "type": "color", "label": "Colour", "default": "#f472b6" },
+    { "key": "showAccuracy", "type": "boolean", "label": "Show accuracy", "default": true },
+    { "key": "size", "type": "number", "label": "Font size", "default": 56, "min": 12, "max": 200 }
+  ]
+}

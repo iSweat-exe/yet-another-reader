@@ -1,0 +1,31 @@
+[package]
+name = "lazer-reader"
+version = "0.1.0"
+description = "Read-only game state reader for osu!lazer"
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+anyhow = "1"
+serde_json = "1"
+# Pinned to a commit: the `pp-update` branch moves, and the PP numbers must not change under a release.
+rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", rev = "072ed255fa043aba495212c441030dc7a5e61469" }
+
+[target.'cfg(windows)'.dependencies]
+windows-core = "0.61"
+windows = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Diagnostics_Debug",
+  "Win32_System_Diagnostics_ToolHelp",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Memory",
+  "Win32_System_Threading",
+  "Win32_UI_WindowsAndMessaging",
+] }

@@ -1,0 +1,606 @@
+@import "@fontsource-variable/ibm-plex-sans";
+@import "tailwindcss";
+
+/*
+ * A tool for people who tweak numbers, so: neutral graphite surfaces that stay out of the way,
+ * hairlines instead of cards, small radii, and one accent (osu! pink) reserved for what is
+ * selected or active.
+ */
+@theme {
+  --font-sans: "IBM Plex Sans Variable", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --color-ink: oklch(0.95 0.004 80);
+  --color-ink-dim: oklch(0.69 0.008 80);
+  --color-surface: oklch(0.175 0.004 80);
+  --color-surface-raised: oklch(0.21 0.005 80);
+  --color-menu: oklch(0.26 0.006 80);
+  --color-canvas: oklch(0.14 0.004 80);
+  --color-accent: oklch(0.72 0.19 355);
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --radius-2xl: 8px;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    color-scheme: dark;
+    /* The outline of a field. Subtle by default; with "increase contrast" it is a clearly visible edge (3:1). */
+    --ring-field: oklch(1 0 0 / 0.16);
+  }
+  @media (prefers-contrast: more) {
+    html {
+      --ring-field: oklch(1 0 0 / 0.55);
+    }
+    .doc th,
+    .doc td {
+      border-color: oklch(1 0 0 / 0.35);
+    }
+  }
+  body {
+    @apply bg-surface text-ink font-sans;
+  }
+  h1,
+  h2 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  ::selection {
+    background: oklch(0.72 0.19 355 / 0.35);
+  }
+}
+
+/*
+ * Scrollbars: one fixed-width track (12px) drawn by the webview itself, so showing, hiding or hovering
+ * never changes the width of the content. The thumb is always there but quiet, and brightens while the
+ * pointer is over the scrollable area. Vertical scrollers reserve their track up front (`scrollbar-gutter`),
+ * so a page that grows past the window does not shift sideways either. The standard `scrollbar-color` /
+ * `scrollbar-width` properties are left unset on purpose: setting them swaps the webview to a thinner
+ * scrollbar and the layout jumps when the pointer enters.
+ */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: oklch(1 0 0 / 0.12);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  transition: background-color 150ms ease-out;
+}
+*:hover::-webkit-scrollbar-thumb {
+  background-color: oklch(1 0 0 / 0.22);
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: oklch(1 0 0 / 0.4);
+}
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--color-accent);
+}
+.overflow-y-auto {
+  scrollbar-gutter: stable;
+}
+/* A menu or a list inside a panel is not a page: no spare track. */
+[role="listbox"] {
+  scrollbar-gutter: auto;
+}
+/* A scroller that must not show a bar at all (the row of tabs: it scrolls by touch or wheel). */
+.scroll-hidden {
+  scrollbar-width: none;
+}
+.scroll-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* The in-game overlay window is see-through: only widgets are painted. */
+html.overlay,
+html.overlay body {
+  background: transparent;
+}
+html.overlay ::-webkit-scrollbar {
+  display: none;
+}
+
+
+/*
+ * The documentation pages: rendered Markdown (see src/docs/markdown.ts). One accent for the whole app
+ * (osu! pink, for what is selected or active); the pages themselves are ink on graphite, and the only
+ * other colours are the ones that carry meaning (callout kinds, HTTP verbs, syntax).
+ */
+.doc {
+  --tint: var(--color-ink);
+  --tint-soft: oklch(1 0 0 / 0.08);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+}
+.doc > :last-child {
+  margin-bottom: 0;
+}
+/* Prose stays near 70 characters a line; tables, code and pictures use the full column. */
+.doc > p,
+.doc > ul,
+.doc > ol {
+  max-width: 72ch;
+}
+.doc h1,
+.doc h2,
+.doc h3,
+.doc h4 {
+  scroll-margin-top: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.doc h1 {
+  margin: 0 0 1.25rem;
+  font-size: 1.875rem;
+  /* Large type: tight leading and negative tracking; the smaller the text, the looser both get. */
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+/* The page title is set larger than the h1 of a section, and the sentence under it is the page in one breath. */
+.doc > h1:first-child {
+  margin-bottom: 1rem;
+  font-size: clamp(1.625rem, 7vw, 2.375rem);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.doc > h1:first-child + p {
+  max-width: 62ch;
+  margin-bottom: 1.75rem;
+  color: oklch(0.95 0.004 80 / 0.78);
+  font-size: 1.125rem;
+  line-height: 1.6;
+  letter-spacing: -0.005em;
+}
+.doc h2 {
+  margin: 2.5rem 0 0.875rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid oklch(1 0 0 / 0.08);
+  font-size: 1.3125rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+.doc h3 {
+  margin: 1.75rem 0 0.5rem;
+  color: var(--tint);
+  font-size: 1.0625rem;
+}
+.doc h4 {
+  margin: 1.5rem 0 0.5rem;
+  color: var(--color-ink-dim);
+  font-size: 0.9375rem;
+}
+.doc p,
+.doc ul,
+.doc ol,
+.doc pre {
+  margin: 0 0 1rem;
+}
+.doc ul {
+  padding-left: 1.4rem;
+  list-style: disc;
+}
+.doc ol {
+  padding-left: 1.4rem;
+  list-style: decimal;
+}
+.doc li {
+  margin: 0.3rem 0;
+}
+.doc li::marker {
+  color: var(--tint);
+}
+.doc li > ul,
+.doc li > ol {
+  margin: 0.3rem 0 0;
+}
+.doc strong {
+  font-weight: 600;
+}
+.doc a[data-doc],
+.doc a[data-anchor] {
+  color: var(--tint);
+  text-decoration: underline;
+  text-decoration-color: oklch(1 0 0 / 0.4);
+  text-underline-offset: 3px;
+}
+.doc a[data-doc]:hover,
+.doc a[data-anchor]:hover {
+  text-decoration-color: currentColor;
+}
+.doc code {
+  padding: 0.1em 0.38em;
+  border-radius: var(--radius-sm);
+  background: var(--tint-soft);
+  color: var(--color-ink);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.85em;
+}
+.doc pre {
+  position: relative;
+  padding: 0.875rem 1rem;
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  background: var(--color-canvas);
+}
+.doc pre[data-lang]::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 0.4rem;
+  right: 0.75rem;
+  color: var(--tint);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  opacity: 0.8;
+  text-transform: uppercase;
+}
+.doc-copy {
+  position: sticky;
+  right: 0;
+  float: right;
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin: -0.4rem -0.55rem 0 0.5rem;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: oklch(1 0 0 / 0.06);
+  color: var(--color-ink-dim);
+  opacity: 0;
+  outline: none;
+  transition:
+    opacity 150ms ease-out,
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    scale 150ms ease-out;
+}
+.doc pre:hover .doc-copy,
+.doc-copy:focus-visible {
+  opacity: 1;
+}
+.doc pre:hover::before,
+.doc pre:has(.doc-copy:focus-visible)::before {
+  opacity: 0;
+}
+.doc pre[data-lang]::before {
+  transition: opacity 150ms ease-out;
+}
+.doc-copy:hover {
+  background: oklch(1 0 0 / 0.12);
+  color: var(--color-ink);
+}
+.doc-copy:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+.doc-copy:active {
+  scale: 0.94;
+}
+.doc-copy[data-copied="true"] {
+  color: oklch(0.8 0.15 150);
+}
+.doc pre code {
+  padding: 0;
+  background: none;
+  color: var(--color-ink);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+.tok-key {
+  color: oklch(0.8 0.11 230);
+}
+.tok-str {
+  color: oklch(0.8 0.14 150);
+}
+.tok-num {
+  color: oklch(0.83 0.14 70);
+}
+.tok-lit {
+  color: oklch(0.78 0.15 40);
+}
+.tok-kw {
+  color: oklch(0.76 0.15 320);
+}
+.tok-fn {
+  color: oklch(0.85 0.12 95);
+}
+.tok-flag {
+  color: oklch(0.82 0.12 70);
+}
+.tok-tag {
+  color: oklch(0.76 0.15 20);
+}
+.tok-attr {
+  color: oklch(0.82 0.1 85);
+}
+.tok-com {
+  color: oklch(0.6 0.02 80);
+  font-style: italic;
+}
+.http {
+  font-size: 0.8em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-right: 0.1em;
+}
+.http-get {
+  color: oklch(0.8 0.15 150);
+}
+.http-post {
+  color: oklch(0.78 0.13 230);
+}
+.http-put,
+.http-patch {
+  color: oklch(0.82 0.14 70);
+}
+.http-delete {
+  color: oklch(0.75 0.17 25);
+}
+.doc-callout {
+  --c: oklch(0.78 0.12 230);
+  margin: 0 0 1.25rem;
+  padding: 0.7rem 1rem 0.8rem;
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklch, var(--c) 11%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--c) 28%, transparent);
+}
+.doc-callout::before {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: var(--c);
+  content: attr(data-label);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.doc-callout[data-kind="tip"] {
+  --c: oklch(0.8 0.15 150);
+}
+.doc-callout[data-kind="important"] {
+  --c: oklch(0.78 0.14 300);
+}
+.doc-callout[data-kind="warning"] {
+  --c: oklch(0.82 0.15 70);
+}
+.doc-callout p {
+  margin: 0.25rem 0 0;
+}
+.doc-callout code {
+  background: color-mix(in oklch, var(--c) 18%, transparent);
+  color: var(--color-ink);
+}
+.doc .doc-table {
+  margin: 0 0 1.25rem;
+  overflow-x: auto;
+}
+.doc table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+.doc th {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid oklch(1 0 0 / 0.2);
+  color: var(--tint);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+.doc td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid oklch(1 0 0 / 0.06);
+  vertical-align: top;
+}
+.doc tbody tr:hover td {
+  background: oklch(1 0 0 / 0.025);
+}
+.doc hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid oklch(1 0 0 / 0.08);
+}
+
+/* Documentation sidebar and outline: the accent marks the current page and the current section. */
+.doc-nav-active {
+  background: oklch(0.72 0.19 355 / 0.14);
+}
+/* The bar of the current page grows in rather than appearing. */
+.doc-nav::before {
+  content: "";
+  position: absolute;
+  inset: 0.375rem auto 0.375rem 0;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  scale: 1 0;
+}
+.doc-nav.doc-nav-active::before {
+  scale: 1 1;
+}
+
+/* A screenshot of the application, or the frame that says what it must show until the file exists. */
+.doc-shot {
+  margin: 0 0 1.5rem;
+}
+.doc-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 34px oklch(0 0 0 / 0.45);
+  /* Room for the picture while it loads, so the text below does not jump. */
+  min-height: 8rem;
+  background: var(--color-surface-raised);
+  cursor: zoom-in;
+  outline: none;
+  transition: box-shadow 150ms ease-out;
+}
+.doc-shot img:hover,
+.doc-shot img:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--color-accent),
+    0 10px 34px oklch(0 0 0 / 0.45);
+}
+
+/*
+ * Dialogs and the enlarged picture: a short fade in, and the way out is the same path backwards
+ * (`data-closing` is set for the length of the exit). Opened rarely, so a short entrance does not get in the way.
+ */
+.viewer,
+.modal-scrim {
+  animation: scrim-in 150ms ease-out;
+  transition: opacity 120ms ease-out;
+}
+.modal-panel {
+  animation: panel-in 180ms cubic-bezier(0.2, 0, 0, 1);
+  transition:
+    opacity 120ms ease-out,
+    scale 120ms ease-out;
+}
+.viewer[data-closing="true"],
+.modal-scrim[data-closing="true"] {
+  opacity: 0;
+}
+.modal-scrim[data-closing="true"] .modal-panel {
+  opacity: 0;
+  scale: 0.97;
+}
+/* The right-click menu of the editor opens at the pointer, from the corner that touches it. */
+.context-menu {
+  animation: menu-in 110ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+/* An error banner slides in from where it will rest, a few pixels below. */
+.toast {
+  animation: toast-in 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .doc,
+  .doc-nav::before,
+  .viewer,
+  .modal-scrim,
+  .modal-panel,
+  .context-menu,
+  .toast {
+    animation: none;
+    transition: none;
+  }
+  .range::-webkit-slider-thumb {
+    transition: none;
+  }
+}
+.doc-shot figcaption {
+  margin-top: 0.6rem;
+  color: var(--color-ink-dim);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+.doc-shot-todo {
+  min-height: 11rem;
+  padding: 1rem 1.25rem 1.1rem;
+  border: 1.5px dashed oklch(1 0 0 / 0.22);
+  border-radius: var(--radius-lg);
+  background:
+    repeating-linear-gradient(135deg, oklch(1 0 0 / 0.025) 0 10px, transparent 10px 20px),
+    oklch(1 0 0 / 0.03);
+}
+.doc-shot-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.65rem;
+  color: var(--tint);
+}
+.doc-shot-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.doc-shot-head code {
+  margin-left: auto;
+  color: var(--color-ink-dim);
+  font-size: 0.75rem;
+}
+.doc-shot-todo p {
+  margin: 0;
+  color: var(--color-ink-dim);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+/*
+ * Range input (Settings): a 4px track filled up to the thumb (`--fill`, set by the component) and a
+ * 16px thumb inside a 24px-tall hit area. Chromium/WebView2 only, which is what the app runs on.
+ */
+.range {
+  --fill: 0%;
+  appearance: none;
+  width: 100%;
+  height: 24px;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+.range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--color-accent) var(--fill), oklch(1 0 0 / 0.14) var(--fill));
+}
+.range::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 999px;
+  background: oklch(1 0 0);
+  box-shadow:
+    0 0 0 1px oklch(0 0 0 / 0.2),
+    0 1px 3px oklch(0 0 0 / 0.4);
+  transition:
+    scale 150ms ease-out,
+    box-shadow 150ms ease-out;
+}
+.range:active::-webkit-slider-thumb {
+  scale: 1.12;
+}
+.range:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 1px oklch(0 0 0 / 0.2),
+    0 0 0 4px oklch(0.72 0.19 355 / 0.5);
+}
