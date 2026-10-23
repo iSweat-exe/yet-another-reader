@@ -1,6 +1,6 @@
 [package]
 name = "yet-another-reader"
-version = "0.1.0"
+version = "0.9.0-rc.1"
 description = "State reader and in-game overlay for osu!lazer"
 authors = ["iSweat-exe"]
 edition.workspace = true
