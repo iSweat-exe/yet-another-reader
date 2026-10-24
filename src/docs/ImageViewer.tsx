@@ -1,5 +1,5 @@
 import { type PointerEvent, useCallback, useEffect, useRef, useState } from "react";
-import { Icon } from "../components/Icon";
+import { Icon } from "../components/icons/Icon";
 import { useT } from "../i18n";
 
 export interface ViewedImage {

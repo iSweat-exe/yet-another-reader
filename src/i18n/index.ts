@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
-import { useReaderStore } from "../lib/store";
+import { useReaderStore } from "../lib/state/store";
 import { en, type Messages } from "./en";
 import { fr } from "./fr";
 import { type Lang, isLang, langOfLocale } from "./languages";

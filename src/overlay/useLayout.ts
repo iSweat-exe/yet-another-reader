@@ -1,9 +1,9 @@
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
-import { loadLayout } from "../lib/layoutApi";
-import { isTauri } from "../lib/mock";
-import { useReaderStore } from "../lib/store";
-import { type Layout, classicLayout, migrateLayout } from "./layout";
+import { loadLayout } from "../lib/layouts/layoutApi";
+import { isTauri } from "../lib/state/mock";
+import { useReaderStore } from "../lib/state/store";
+import { type Layout, classicLayout, migrateLayout } from "./model/layout";
 
 /** The active layout, kept in sync with edits made in the editor and with the active choice. */
 export function useLayout(): Layout {

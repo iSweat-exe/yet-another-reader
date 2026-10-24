@@ -1,8 +1,8 @@
 import React, { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { blockBrowserShortcuts } from "./lib/browserKeys";
-import { initTheme } from "./lib/theme";
+import { blockBrowserShortcuts } from "./lib/system/browserKeys";
+import { initTheme } from "./lib/system/theme";
 import "./index.css";
 
 // The in-game overlay is its own window: the main window never loads its tree, and the overlay never loads the app.

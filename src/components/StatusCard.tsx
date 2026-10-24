@@ -1,5 +1,5 @@
 import { type MessageKey, useT } from "../i18n";
-import type { ReaderStatus } from "../lib/types";
+import type { ReaderStatus } from "../lib/state/types";
 
 interface PhaseView {
   text: MessageKey;

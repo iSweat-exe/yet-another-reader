@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useId, useState } from "react";
-import { Icon, type IconName } from "../components/Icon";
-import { Select } from "../components/Select";
+import { Icon, type IconName } from "../components/icons/Icon";
+import { Select } from "../components/select/Select";
 
 export const controlClass =
   "rounded-md bg-surface px-2 py-1 text-sm tabular-nums text-ink shadow-[0_0_0_1px_var(--ring-field)] outline-none transition-shadow duration-150 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] disabled:opacity-50";

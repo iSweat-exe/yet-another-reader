@@ -1,5 +1,5 @@
 import { type KeyboardEvent, lazy, type MouseEvent, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Icon } from "../components/Icon";
+import { Icon } from "../components/icons/Icon";
 import { useLang, useT } from "../i18n";
 import { ImageViewer, type ViewedImage } from "./ImageViewer";
 import { renderMarkdown } from "./markdown";

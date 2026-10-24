@@ -1,7 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import { useT } from "../i18n";
-import { isTauri } from "../lib/mock";
+import { isTauri } from "../lib/state/mock";
 
 /** 10×10 glyphs drawn on the pixel grid, 1px strokes, like the caption buttons they replace. */
 const GLYPHS = {

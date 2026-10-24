@@ -242,11 +242,11 @@ describe.each([
     }
   });
 
-  it("documents both WebSocket streams, with an example of use and every message type", () => {
+  it("documents the three WebSocket streams, with an example of use and every message type", () => {
     for (const route of routes.filter((r) => r.endsWith("/ws"))) expect(text(websocket!), route).toContain(`ws://127.0.0.1:24051${route}`);
-    expect(text(websocket!).match(new RegExp(wsUsage, "g"))).toHaveLength(2);
+    expect(text(websocket!).match(new RegExp(wsUsage, "g"))).toHaveLength(3);
     for (const type of ["hello", "state", "status", "event", "pong", "input"]) expect(text(websocket!), type).toContain(`#### \`${type}\``);
-    for (const name of ["connectionChanged", "screenChanged", "beatmapChanged", "modsChanged", "playStarted", "playEnded", "paused", "resumed", "failed"]) {
+    for (const name of ["connectionChanged", "screenChanged", "beatmapChanged", "modsChanged", "playStarted", "playEnded", "paused", "resumed", "failed", "hit", "miss", "comboBreak"]) {
       expect(text(websocket!), name).toContain(`**\`${name}\``);
     }
   });

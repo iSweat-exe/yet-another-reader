@@ -1,17 +1,18 @@
-import { BAR_WIDGETS } from "./bars";
-import { BASIC_WIDGETS } from "./basic";
-import { DIFFICULTY_GRAPH_WIDGETS } from "./difficultyGraph";
-import { IMAGE_WIDGETS } from "./image";
-import { INFO_WIDGETS } from "./info";
-import { INPUT_WIDGETS } from "./input";
-import { LIVE_WIDGETS } from "./live";
-import { MAP_WIDGETS } from "./map";
-import { MISC_WIDGETS } from "./misc";
-import { PLAYER_WIDGETS } from "./player";
-import { SOCIAL_WIDGETS } from "./social";
+import { BAR_WIDGETS } from "./builtin/bars";
+import { BASIC_WIDGETS } from "./builtin/basic";
+import { DIFFICULTY_GRAPH_WIDGETS } from "./builtin/difficultyGraph";
+import { HISTORY_WIDGETS } from "./builtin/history";
+import { IMAGE_WIDGETS } from "./builtin/image";
+import { INFO_WIDGETS } from "./builtin/info";
+import { INPUT_WIDGETS } from "./builtin/input";
+import { LIVE_WIDGETS } from "./builtin/live";
+import { MAP_WIDGETS } from "./builtin/map";
+import { MISC_WIDGETS } from "./builtin/misc";
+import { PLAYER_WIDGETS } from "./builtin/player";
+import { SOCIAL_WIDGETS } from "./builtin/social";
 import type { WidgetDefinition } from "./types";
 
-export const WIDGETS: readonly WidgetDefinition[] = [...BASIC_WIDGETS, ...BAR_WIDGETS, ...INFO_WIDGETS, ...PLAYER_WIDGETS, ...SOCIAL_WIDGETS, ...INPUT_WIDGETS, ...MAP_WIDGETS, ...LIVE_WIDGETS, ...MISC_WIDGETS, ...IMAGE_WIDGETS, ...DIFFICULTY_GRAPH_WIDGETS];
+export const WIDGETS: readonly WidgetDefinition[] = [...BASIC_WIDGETS, ...BAR_WIDGETS, ...INFO_WIDGETS, ...PLAYER_WIDGETS, ...SOCIAL_WIDGETS, ...INPUT_WIDGETS, ...MAP_WIDGETS, ...LIVE_WIDGETS, ...MISC_WIDGETS, ...IMAGE_WIDGETS, ...DIFFICULTY_GRAPH_WIDGETS, ...HISTORY_WIDGETS];
 
 const BY_TYPE = new Map(WIDGETS.map((w) => [w.type, w]));
 
@@ -37,7 +38,8 @@ const CATEGORY_GROUPS: readonly { id: WidgetCategory; groups: readonly WidgetGro
     groups: [
       { id: "score", types: ["score", "combo", "maxCombo", "accuracy", "rank", "ur"] },
       { id: "pp", types: ["pp", "ppFc", "ppSs", "ppMax", "ppTable"] },
-      { id: "judgements", types: ["great", "ok", "meh", "miss", "hitErrors"] },
+      { id: "judgements", types: ["great", "ok", "meh", "miss", "hitErrors", "hitErrorBar"] },
+      { id: "history", types: ["playGraph", "pbDelta"] },
       { id: "state", types: ["health", "progress", "playStatus"] },
     ],
   },

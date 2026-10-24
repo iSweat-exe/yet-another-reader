@@ -1,6 +1,6 @@
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Icon, type IconName } from "./Icon";
+import { Icon, type IconName } from "./icons/Icon";
 
 export interface MenuItem {
   id: string;

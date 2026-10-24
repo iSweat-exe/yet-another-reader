@@ -1,6 +1,6 @@
 import { type MessageKey, useT } from "../i18n";
-import { THEMES, THEME_SWATCHES, type ThemeId, setTheme, useTheme } from "../lib/theme";
-import { Icon } from "./Icon";
+import { THEMES, THEME_SWATCHES, type ThemeId, setTheme, useTheme } from "../lib/system/theme";
+import { Icon } from "./icons/Icon";
 
 /** A miniature of the app in a theme's colours: a header with its accent tab, a panel and a line of text. */
 export function ThemePreview({ id }: { id: ThemeId }) {

@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import type { MessageKey } from "../i18n";
-import type { WidgetOption } from "../lib/types";
-import type { WidgetInstance } from "../overlay/layout";
+import type { WidgetOption } from "../lib/state/types";
+import type { WidgetInstance } from "../overlay/model/layout";
 
 export interface WidgetProps {
   instance: WidgetInstance;

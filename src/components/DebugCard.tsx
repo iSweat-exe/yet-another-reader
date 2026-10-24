@@ -1,11 +1,11 @@
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useT } from "../i18n";
-import { rulesetIconUrl } from "../lib/assets";
-import { clearLog, useReaderStore } from "../lib/store";
-import type { InputConsumers, LogLevel, LogLine } from "../lib/types";
+import { rulesetIconUrl } from "../lib/media/assets";
+import { clearLog, useReaderStore } from "../lib/state/store";
+import type { InputConsumers, LogLevel, LogLine } from "../lib/state/types";
 import { CopyButton, Group } from "./controls";
-import { Icon } from "./Icon";
-import { ModIcon } from "./ModIcon";
+import { Icon } from "./icons/Icon";
+import { ModIcon } from "./icons/ModIcon";
 
 /** A label and its value on one line; `hint` goes under the value in the dim colour. */
 function Fact({ label, value, hint, tone }: { label: string; value: ReactNode; hint?: ReactNode; tone?: string }) {

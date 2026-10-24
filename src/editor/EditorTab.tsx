@@ -1,19 +1,19 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import { Icon } from "../components/Icon";
+import { Icon } from "../components/icons/Icon";
 import { useT } from "../i18n";
-import { isTauri, startGameMock } from "../lib/mock";
-import { useInputWindow } from "../lib/useInputWindow";
-import { useReaderStore } from "../lib/store";
-import type { GameState } from "../lib/types";
-import { EditorCanvas } from "./EditorCanvas";
-import { Inspector } from "./Inspector";
-import { PageTabs } from "./PageTabs";
-import { Layers, Palette } from "./Palette";
-import { Splitter, useStoredSize } from "./Splitter";
-import { CommandPalette } from "./CommandPalette";
-import { Toolbar } from "./Toolbar";
-import { useErrorText } from "./dialogs";
+import { isTauri, startGameMock } from "../lib/state/mock";
+import { useInputWindow } from "../lib/state/useInputWindow";
+import { useReaderStore } from "../lib/state/store";
+import type { GameState } from "../lib/state/types";
+import { EditorCanvas } from "./canvas/EditorCanvas";
+import { Inspector } from "./panels/Inspector";
+import { PageTabs } from "./panels/PageTabs";
+import { Layers, Palette } from "./panels/Palette";
+import { Splitter, useStoredSize } from "./panels/Splitter";
+import { CommandPalette } from "./panels/CommandPalette";
+import { Toolbar } from "./panels/Toolbar";
+import { useErrorText } from "./panels/dialogs";
 import { isDirty, useEditor } from "./useEditor";
 
 const AUTOSAVE_DELAY_MS = 500;
@@ -116,6 +116,9 @@ function useShortcuts() {
       const handled = (() => {
         if (mod && key === "z") return e.shiftKey ? ed.redo() : ed.undo(), true;
         if (mod && key === "y") return ed.redo(), true;
+        // Ctrl+Alt+C / V copy and paste the style (Ctrl+C / V copy the widgets): the Alt ones come first.
+        if (mod && e.altKey && key === "c") return ed.copyStyle(), true;
+        if (mod && e.altKey && key === "v") return ed.pasteStyle(), true;
         if (mod && key === "c") return ed.copySelected(), true;
         if (mod && key === "v") return ed.paste(), true;
         if (mod && key === "d") return ed.duplicateSelected(), true;

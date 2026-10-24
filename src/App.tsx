@@ -1,20 +1,20 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { ApiCard } from "./components/ApiCard";
-import { Icon, type IconName, preloadOsuIcons } from "./components/Icon";
+import { Icon, type IconName, preloadOsuIcons } from "./components/icons/Icon";
 import { Backdrop } from "./components/Backdrop";
 import { DebugCard } from "./components/DebugCard";
 import { SettingsCard } from "./components/SettingsCard";
-import { onTabListKeyDown } from "./components/tabKeys";
-import { UpdateChip } from "./components/UpdateChip";
+import { onTabListKeyDown } from "./lib/system/tabKeys";
+import { UpdateChip } from "./components/updates/UpdateChip";
 import { StatusCard } from "./components/StatusCard";
 import { useT } from "./i18n";
-import { LOGO_URL, menuBackgroundUrl } from "./lib/assets";
-import { isTauri, startMock } from "./lib/mock";
+import { LOGO_URL, menuBackgroundUrl } from "./lib/media/assets";
+import { isTauri, startMock } from "./lib/state/mock";
 import { WindowControls } from "./components/WindowControls";
 import { ThemePicker } from "./components/ThemePicker";
 import { Group } from "./components/controls";
-import { connectReaderStore, useReaderStore } from "./lib/store";
-import { useUiSounds } from "./lib/uiSounds";
+import { connectReaderStore, useReaderStore } from "./lib/state/store";
+import { useUiSounds } from "./lib/audio/uiSounds";
 
 // The editor is only needed when its tab is opened.
 const EditorTab = lazy(() => import("./editor/EditorTab"));

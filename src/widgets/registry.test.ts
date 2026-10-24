@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { en } from "../i18n/en";
 import { fr } from "../i18n/fr";
 import { INPUT_WIDGET_TYPES, WIDGETS, WIDGET_CATEGORIES } from "./registry";
-import { backgroundUrl } from "./map";
+import { backgroundUrl } from "./builtin/map";
 import { optionValues } from "./web";
 
 /** Still drawn (layouts use it) but no longer offered in the palette. */

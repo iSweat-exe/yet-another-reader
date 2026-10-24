@@ -2,17 +2,20 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n";
 import { LANGUAGES } from "../i18n/languages";
-import { isTauri } from "../lib/mock";
-import { playSfx, setSfxPrefs, useSfxPrefs } from "../lib/sfx";
-import { saveSettings } from "../lib/store";
-import { FPS_LIMITS, INPUT_POLL_LIMITS, MIN_PORT, POLL_LIMITS, type RtssStatus, type Settings } from "../lib/types";
+import { isTauri } from "../lib/state/mock";
+import { playSfx, setSfxPrefs, useSfxPrefs } from "../lib/audio/sfx";
+import { saveSettings } from "../lib/state/store";
+import { FPS_LIMITS, INPUT_POLL_LIMITS, MIN_PORT, POLL_LIMITS, type RtssStatus, type Settings } from "../lib/state/types";
 import { Group, NumberField, Row, Slider, Switch } from "./controls";
-import { Icon } from "./Icon";
-import { Select } from "./Select";
-import { UpdateRows } from "./UpdateRows";
+import { Icon } from "./icons/Icon";
+import { Select } from "./select/Select";
+import { UpdateRows } from "./updates/UpdateRows";
 
 const outlineButton =
   "min-h-10 rounded-lg px-3 text-sm text-ink shadow-[0_0_0_1px_oklch(from_var(--wash)_l_c_h/0.12)] outline-none transition-[scale,background-color,box-shadow] duration-150 ease-out hover:bg-wash/6 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100";
+
+const textInput =
+  "min-h-10 rounded-lg bg-transparent px-3 text-sm text-ink shadow-[0_0_0_1px_oklch(from_var(--wash)_l_c_h/0.12)] outline-none placeholder:text-ink-dim focus-visible:shadow-[0_0_0_2px_var(--color-accent)]";
 
 export function SettingsCard({ settings, rtss }: { settings: Settings; rtss: RtssStatus | null }) {
   const t = useT();
@@ -150,6 +153,36 @@ export function SettingsCard({ settings, rtss }: { settings: Settings; rtss: Rts
                 {rtss.available ? t("settings.rtssOk") : `${rtss.message ?? t("settings.rtssMissing")} ${t("settings.rtssStart")}`}
               </p>
             )}
+          </>
+        )}
+      </Group>
+
+      <Group title={t("settings.group.nowPlaying")}>
+        <Row id="np-enabled" label={t("settings.nowPlaying")} hint={t("settings.nowPlayingHint")}>
+          <Switch id="np-enabled" checked={draft.nowPlayingEnabled} onChange={(nowPlayingEnabled) => set({ nowPlayingEnabled })} />
+        </Row>
+        {draft.nowPlayingEnabled && (
+          <>
+            <Row appear id="np-template" label={t("settings.nowPlayingTemplate")} hint={t("settings.nowPlayingTemplateHint")}>
+              <input
+                id="np-template"
+                value={draft.nowPlayingTemplate}
+                maxLength={500}
+                spellCheck={false}
+                onChange={(e) => set({ nowPlayingTemplate: e.target.value })}
+                className={`${textInput} w-72`}
+              />
+            </Row>
+            <Row appear id="np-dir" label={t("settings.nowPlayingDir")} hint={t("settings.nowPlayingDirHint")}>
+              <input
+                id="np-dir"
+                value={draft.nowPlayingDir}
+                placeholder={t("settings.nowPlayingDirDefault")}
+                spellCheck={false}
+                onChange={(e) => set({ nowPlayingDir: e.target.value })}
+                className={`${textInput} w-72`}
+              />
+            </Row>
           </>
         )}
       </Group>

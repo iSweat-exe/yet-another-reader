@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CopyButton } from "../components/controls";
-import { Icon } from "../components/Icon";
-import { Select } from "../components/Select";
+import { Icon } from "../components/icons/Icon";
+import { Select } from "../components/select/Select";
 import { useT } from "../i18n";
-import { useReaderStore } from "../lib/store";
+import { useReaderStore } from "../lib/state/store";
 
 /** What the REST playground can ask for: the routes the app lists at `/api/v1` (all `GET`). */
 interface Endpoint {
@@ -22,7 +22,7 @@ interface Answer {
 }
 
 const MAX_SHOWN = 100_000;
-const WS_ENDPOINTS = ["/api/v1/ws", "/api/v1/inputs/ws"] as const;
+const WS_ENDPOINTS = ["/api/v1/ws", "/api/v1/inputs/ws", "/api/v1/events/ws"] as const;
 const MAX_MESSAGES = 200;
 
 const input = "min-h-9 rounded-lg bg-surface px-3 text-sm text-ink shadow-[0_0_0_1px_var(--ring-field)] outline-none transition-shadow duration-150 placeholder:text-ink-dim focus-visible:shadow-[0_0_0_2px_var(--color-accent)]";

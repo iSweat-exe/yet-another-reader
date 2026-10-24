@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   type Layout,
   type WidgetInstance,
+  type WidgetStyle,
   expandGroups,
   newGroupId,
   normalizeRotation,
@@ -10,17 +11,17 @@ import {
   uniqueId,
   withPosition,
   withoutLoneGroups,
-} from "../overlay/layout";
-import type { Page } from "../overlay/pages";
-import { createLibrary, type LibraryState } from "./layoutLibrary";
-import { moveUnit as moveUnitIn, type Placement } from "./layerOrder";
-import { type BackgroundId, DEFAULT_BACKGROUND, isBackgroundId } from "./backgrounds";
-import { type Aspect, regroup, viewWidthOf, withAutoAnchors } from "./layoutOps";
-import { type AlignMode, type Axis, type Unit, alignedPosition, boundingBox, distributionShifts, spacingShifts, unitsOf } from "./geometry";
+} from "../overlay/model/layout";
+import type { Page } from "../overlay/model/pages";
+import { createLibrary, type LibraryState } from "./model/layoutLibrary";
+import { moveUnit as moveUnitIn, type Placement } from "./model/layerOrder";
+import { type BackgroundId, DEFAULT_BACKGROUND, isBackgroundId } from "./model/backgrounds";
+import { type Aspect, regroup, viewWidthOf, withAutoAnchors } from "./model/layoutOps";
+import { type AlignMode, type Axis, type Unit, alignedPosition, boundingBox, distributionShifts, spacingShifts, unitsOf } from "./canvas/geometry";
 
 // Kept importable from here: the rest of the editor reads these through the store module.
-export { ASPECTS, type Aspect, isValidLayoutName, viewWidthOf } from "./layoutOps";
-export { isDirty } from "./layoutLibrary";
+export { ASPECTS, type Aspect, isValidLayoutName, viewWidthOf } from "./model/layoutOps";
+export { isDirty } from "./model/layoutLibrary";
 
 const HISTORY_LIMIT = 100;
 
@@ -65,6 +66,8 @@ interface EditorState extends LibraryState {
   past: Layout[];
   future: Layout[];
   clipboard: WidgetInstance[];
+  /** The style (colour, scale, typography...) copied from a widget, to paste on others. */
+  styleClipboard: WidgetStyle | null;
   /** Layout at the start of the current drag/resize, to record one undo step per gesture. */
   gestureStart: Layout | null;
   autosave: boolean;
@@ -100,6 +103,12 @@ interface EditorState extends LibraryState {
   duplicateSelected: () => void;
   copySelected: () => void;
   paste: () => void;
+  /** Remembers the style of the first selected widget. */
+  copyStyle: () => void;
+  /** Gives the remembered style to every selected widget (the unlocked ones). */
+  pasteStyle: () => void;
+  /** Gives every selected widget the width and/or height of the first one selected. */
+  matchSize: (dimension: "w" | "h" | "both") => void;
   nudge: (dx: number, dy: number) => void;
   reorder: (id: string, to: "front" | "back" | "forward" | "backward") => void;
   alignSelected: (mode: AlignMode) => void;
@@ -186,6 +195,7 @@ export const useEditor = create<EditorState>((set, get) => {
     past: [],
     future: [],
     clipboard: [],
+    styleClipboard: null,
     gestureStart: null,
     autosave: true,
     snap: true,
@@ -286,6 +296,27 @@ export const useEditor = create<EditorState>((set, get) => {
     copySelected: () => {
       const { doc, selection } = get();
       set({ clipboard: doc.widgets.filter((w) => selection.includes(w.id)).map((w) => structuredClone(w)) });
+    },
+    copyStyle: () => {
+      const { doc, selection } = get();
+      const source = doc.widgets.find((w) => w.id === selection[0]);
+      if (source) set({ styleClipboard: structuredClone(source.style ?? {}) });
+    },
+    pasteStyle: () => {
+      const { styleClipboard, selection } = get();
+      if (!styleClipboard) return;
+      patchWidgets((ws) => ws.map((w) => (selection.includes(w.id) && !w.locked ? { ...w, style: structuredClone(styleClipboard) } : w)));
+    },
+    matchSize: (dimension) => {
+      const { doc, selection } = get();
+      const source = doc.widgets.find((w) => w.id === selection[0]);
+      if (!source || selection.length < 2) return;
+      patchWidgets((ws) =>
+        ws.map((w) => {
+          if (w.id === source.id || !selection.includes(w.id) || w.locked) return w;
+          return { ...w, w: dimension === "h" ? w.w : source.w, h: dimension === "w" ? w.h : source.h };
+        }),
+      );
     },
     paste: () => {
       const { doc, clipboard } = get();

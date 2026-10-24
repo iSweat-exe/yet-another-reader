@@ -1,5 +1,5 @@
 import { type MessageKey, useT } from "../i18n";
-import type { ApiStatus } from "../lib/types";
+import type { ApiStatus } from "../lib/state/types";
 import { CopyButton, Group } from "./controls";
 
 const EXAMPLES = ["/api/v1/state", "/api/v1/gameplay", "/api/v1/beatmap", "/api/v1/docs"];

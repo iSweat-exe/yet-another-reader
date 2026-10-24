@@ -1,11 +1,11 @@
 import { memo, useEffect, useState } from "react";
-import { useCustomFont } from "../lib/fonts";
-import { textLook } from "./textStyle";
-import { useReaderStore } from "../lib/store";
+import { useCustomFont } from "../lib/media/fonts";
+import { textLook } from "./model/textStyle";
+import { useReaderStore } from "../lib/state/store";
 import { widgetDefinition } from "../widgets/registry";
 import { WebWidget } from "./WebWidget";
-import { type Layout, type WidgetInstance, alignFromAnchor, resolveRect } from "./layout";
-import { pageOf } from "./pages";
+import { type Layout, type WidgetInstance, alignFromAnchor, resolveRect } from "./model/layout";
+import { pageOf } from "./model/pages";
 import { usePresence } from "../widgets/shared";
 
 function useWindowSize() {

@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useT } from "../i18n";
-import { Icon } from "./Icon";
+import { Icon } from "./icons/Icon";
 
 const FIELD_RING = "shadow-[0_0_0_1px_var(--ring-field)] transition-shadow duration-150 ease-out focus-within:shadow-[0_0_0_2px_var(--color-accent)]";
 
