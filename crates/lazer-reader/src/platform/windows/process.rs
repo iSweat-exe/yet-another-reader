@@ -21,48 +21,11 @@ use windows::Win32::System::Threading::{
 use windows::core::PWSTR;
 
 use crate::error::{ReaderError, Result};
+use crate::platform::paths::game_exe_name;
+pub use crate::platform::types::{Module, Region};
 
-const GAME_EXE: &str = "osu!.exe";
 /// Loaded only by lazer; osu!stable shares the exe name but not this assembly.
 const LAZER_MARKER_MODULE: &str = "osu.Game.dll";
-
-/// A loaded module of the target process.
-#[derive(Debug, Clone)]
-pub struct Module {
-    pub name: String,
-    pub base: u64,
-    pub size: u32,
-}
-
-/// A committed, readable memory region.
-#[derive(Debug, Clone, Copy)]
-pub struct Region {
-    pub base: u64,
-    pub size: u64,
-    /// `MEM_PRIVATE` (0x20000), `MEM_MAPPED` (0x40000) or `MEM_IMAGE` (0x1000000).
-    pub kind: u32,
-    /// Win32 `PAGE_*` protection flags.
-    pub protect: u32,
-}
-
-impl Region {
-    pub const PRIVATE: u32 = 0x2_0000;
-
-    /// Private read/write memory: where the managed heap lives.
-    ///
-    /// Write-combined and uncached pages are left out: they are graphics upload buffers (tens of
-    /// MiB each, hundreds in all), not managed objects, and reading them is ~50x slower than
-    /// ordinary memory, which made up most of the time spent scanning for the game's root object.
-    #[must_use]
-    pub fn is_private_rw(&self) -> bool {
-        const RW: u32 = 0x04 | 0x08; // PAGE_READWRITE | PAGE_WRITECOPY
-        const NOCACHE: u32 = 0x200;
-        const WRITECOMBINE: u32 = 0x400;
-        self.kind == Self::PRIVATE
-            && self.protect & RW != 0
-            && self.protect & (NOCACHE | WRITECOMBINE) == 0
-    }
-}
 
 /// An open read-only handle to a running osu!lazer.
 pub struct Process {
@@ -86,7 +49,7 @@ impl Process {
     /// Finds a running osu!lazer and opens it for reading.
     pub fn attach() -> Result<Self> {
         let mut saw_stable = None;
-        for pid in pids_by_exe(GAME_EXE)? {
+        for pid in pids_by_exe(game_exe_name())? {
             let process = Self::open(pid)?;
             if process.module(LAZER_MARKER_MODULE)?.is_some() {
                 return Ok(process);

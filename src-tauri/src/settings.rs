@@ -43,6 +43,12 @@ pub struct Settings {
     pub rtss_y: u32,
     /// Look for a new version in the background (at startup, then every few hours).
     pub auto_update_check: bool,
+    /// Write the current map to `nowplaying.txt` and `cover.*` for OBS, chat bots...
+    pub now_playing_enabled: bool,
+    /// Output folder; empty means `nowplaying` in the app's config folder.
+    pub now_playing_dir: String,
+    /// Text of `nowplaying.txt`, with `{artist}`, `{title}`, `{version}`... placeholders.
+    pub now_playing_template: String,
 }
 
 impl Default for Settings {
@@ -61,6 +67,9 @@ impl Default for Settings {
             rtss_x: 40,
             rtss_y: 40,
             auto_update_check: true,
+            now_playing_enabled: false,
+            now_playing_dir: String::new(),
+            now_playing_template: crate::nowplaying::DEFAULT_TEMPLATE.to_owned(),
         }
     }
 }
@@ -95,6 +104,9 @@ impl Settings {
             rtss_x,
             rtss_y,
             auto_update_check,
+            now_playing_enabled,
+            now_playing_dir,
+            now_playing_template,
         );
         out
     }
@@ -132,6 +144,12 @@ impl Settings {
         if self.rtss_x > MAX_RTSS_COORD || self.rtss_y > MAX_RTSS_COORD {
             return Err(format!(
                 "RTSS position must be between 0 and {MAX_RTSS_COORD} px."
+            ));
+        }
+        if self.now_playing_template.chars().count() > crate::nowplaying::MAX_TEMPLATE_CHARS {
+            return Err(format!(
+                "The now playing text is limited to {} characters.",
+                crate::nowplaying::MAX_TEMPLATE_CHARS
             ));
         }
         Ok(())

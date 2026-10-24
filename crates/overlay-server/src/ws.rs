@@ -243,9 +243,115 @@ async fn inputs_session(mut socket: WebSocket, hub: Hub, mut stop: watch::Receiv
     let _ = socket.close().await;
 }
 
+/// Names of the events, accepted by `?names=` on `/events/ws`.
+pub const EVENT_NAMES: &[&str] = &[
+    "connectionChanged",
+    "screenChanged",
+    "beatmapChanged",
+    "modsChanged",
+    "playStarted",
+    "playEnded",
+    "paused",
+    "resumed",
+    "failed",
+    "hit",
+    "miss",
+    "comboBreak",
+];
+
+#[derive(Debug, Deserialize)]
+pub struct EventsQuery {
+    /// Comma separated subset of [`EVENT_NAMES`]; omitted means every event.
+    names: Option<String>,
+}
+
+fn parse_names(raw: Option<&str>) -> Result<Option<HashSet<String>>, ApiError> {
+    let Some(raw) = raw.filter(|r| !r.trim().is_empty()) else {
+        return Ok(None);
+    };
+    let mut set = HashSet::new();
+    for name in raw.split(',').map(str::trim) {
+        if !EVENT_NAMES.contains(&name) {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "invalidEvent",
+                format!(
+                    "unknown event {name:?}; valid events: {}",
+                    EVENT_NAMES.join(", ")
+                ),
+            ));
+        }
+        set.insert(name.to_owned());
+    }
+    Ok(Some(set))
+}
+
+/// `GET /api/v1/events/ws`: only the discrete events (a note hit, a miss, a play started...), no state.
+pub async fn events_handler(
+    ws: WebSocketUpgrade,
+    State(state): State<AppState>,
+    Query(query): Query<EventsQuery>,
+) -> Result<Response, ApiError> {
+    let names = parse_names(query.names.as_deref())?;
+    let stop = state.shutdown.subscribe();
+    Ok(ws.on_upgrade(move |socket| events_session(socket, state.hub, names, stop)))
+}
+
+async fn events_session(
+    mut socket: WebSocket,
+    hub: Hub,
+    names: Option<HashSet<String>>,
+    mut stop: watch::Receiver<bool>,
+) {
+    let mut rx = hub.subscribe();
+    let hello = json!({ "type": "hello", "apiVersion": API_VERSION, "events": EVENT_NAMES });
+    if !send(&mut socket, hello).await {
+        return;
+    }
+    loop {
+        tokio::select! {
+            () = stopping(&mut stop) => {
+                say_goodbye(&mut socket).await;
+                break;
+            }
+            update = rx.recv() => match update {
+                Ok(Update::Event { seq, event }) => {
+                    let event = json_value(&*event);
+                    let wanted = names.as_ref().is_none_or(|set| {
+                        event.get("name").and_then(Value::as_str).is_some_and(|n| set.contains(n))
+                    });
+                    if wanted && !send(&mut socket, json!({ "type": "event", "seq": seq, "event": event })).await {
+                        break;
+                    }
+                }
+                // State and status are not wanted here; a lagging client just misses some events.
+                Ok(_) | Err(RecvError::Lagged(_)) => {}
+                Err(RecvError::Closed) => break,
+            },
+            incoming = socket.recv() => match incoming {
+                Some(Ok(Message::Text(text))) => {
+                    if text.trim().contains("\"ping\"") && !send(&mut socket, json!({ "type": "pong" })).await {
+                        break;
+                    }
+                }
+                Some(Ok(Message::Close(_)) | Err(_)) | None => break,
+                Some(Ok(_)) => {}
+            },
+        }
+    }
+    let _ = socket.close().await;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parse_names_should_reject_unknown_events() {
+        assert!(parse_names(Some("hit,nope")).is_err());
+        assert!(parse_names(Some("hit, miss")).unwrap().is_some());
+        assert!(parse_names(None).unwrap().is_none());
+    }
 
     #[test]
     fn parse_topics_should_accept_known_topics() {

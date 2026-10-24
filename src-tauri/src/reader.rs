@@ -15,6 +15,8 @@ use overlay_server::Hub;
 use tauri::{AppHandle, Emitter};
 
 use crate::diag::{Diag, ReaderDiag};
+use crate::platform::{fine_timer, lower_priority};
+use crate::records::Records;
 
 const RETRY_INTERVAL: Duration = Duration::from_secs(2);
 /// A failed snapshot is usually transient (the game's GC moved an object mid-read). Only after
@@ -46,6 +48,8 @@ pub struct ReaderContext {
     pub overlay_fps: Arc<AtomicU32>,
     /// Counters and journal shown on the Status page.
     pub diag: Diag,
+    /// Where the personal bests are kept.
+    pub records_dir: std::path::PathBuf,
 }
 
 pub fn spawn(ctx: ReaderContext) -> std::io::Result<()> {
@@ -105,6 +109,7 @@ fn poll(ctx: &ReaderContext, session: &mut LazerSession, meter: &mut Meter) -> R
     let mut failures = 0u32;
     let mut next_snapshot = Instant::now();
     let mut inputs = InputLoop::default();
+    let mut records = Records::new(ctx.records_dir.clone(), ctx.hub.clone());
     let mut in_play = false;
     let result = loop {
         if Instant::now() >= next_snapshot {
@@ -112,7 +117,8 @@ fn poll(ctx: &ReaderContext, session: &mut LazerSession, meter: &mut Meter) -> R
             let snapshot = session.snapshot();
             meter.snapshot(started.elapsed(), snapshot.is_ok());
             match snapshot {
-                Ok(state) => {
+                Ok(mut state) => {
+                    records.observe(last.as_ref(), &mut state);
                     if failures > 0 {
                         ctx.diag.info(
                             &ctx.app,
@@ -422,24 +428,6 @@ fn publish_inputs(ctx: &ReaderContext, inputs: &InputState) {
     }
 }
 
-/// While the inputs are read every few milliseconds, ask Windows for a 1 ms timer so those naps
-/// are not rounded up to its default ~15 ms tick.
-#[cfg(windows)]
-fn fine_timer(on: bool) {
-    use windows::Win32::Media::{timeBeginPeriod, timeEndPeriod};
-    // SAFETY: plain calls with no pointers; every `timeBeginPeriod` is matched by a `timeEndPeriod`.
-    unsafe {
-        if on {
-            timeBeginPeriod(1);
-        } else {
-            timeEndPeriod(1);
-        }
-    }
-}
-
-#[cfg(not(windows))]
-fn fine_timer(_on: bool) {}
-
 /// A window's `game-state` feed: at most one event per interval, never losing the latest state.
 #[derive(Default)]
 struct Throttled {
@@ -568,16 +556,3 @@ fn publish_game(ctx: &ReaderContext, state: GameState) {
     let _ = ctx.app.emit(EVENT_GAME_STATE, &state);
     ctx.hub.publish_state(state);
 }
-
-/// The reader must never compete with the game for CPU time.
-#[cfg(windows)]
-fn lower_priority() {
-    use windows::Win32::System::Threading::{
-        GetCurrentThread, SetThreadPriority, THREAD_PRIORITY_BELOW_NORMAL,
-    };
-    // SAFETY: operates on the calling thread's own pseudo-handle.
-    let _ = unsafe { SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL) };
-}
-
-#[cfg(not(windows))]
-fn lower_priority() {}

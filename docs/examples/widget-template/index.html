@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>__NAME__</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+      body {
+        color: var(--color, #f472b6);
+        font: 700 var(--size, 64px) / 1 system-ui, sans-serif;
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 1px 3px rgb(0 0 0 / 0.85);
+      }
+      #label { font-size: 0.3em; opacity: 0.8; letter-spacing: 0.08em; }
+      #flash { transition: color 400ms ease-out; }
+      #flash.miss { color: #f87171; transition: none; }
+      @media (prefers-reduced-motion: reduce) { #flash { transition: none; } }
+    </style>
+  </head>
+  <body>
+    <div id="label">COMBO</div>
+    <div id="flash"><span id="combo">0</span>x</div>
+
+    <script>
+      // The overlay passes the API address and the options in the query string, and posts
+      // `{ type: "yar:options", options }` when the user edits them in the editor.
+      const params = new URLSearchParams(location.search);
+      const api = params.get("api") || "http://127.0.0.1:24051";
+      let options = JSON.parse(params.get("options") || "{}");
+      const el = (id) => document.getElementById(id);
+
+      function applyOptions() {
+        document.body.style.setProperty("--color", options.color ?? "#f472b6");
+        document.body.style.setProperty("--size", `${options.size ?? 64}px`);
+        el("label").textContent = options.label ?? "COMBO";
+      }
+
+      window.addEventListener("message", (event) => {
+        if (event.data?.type === "yar:options") {
+          options = event.data.options ?? {};
+          applyOptions();
+        }
+      });
+
+      // State: what the game looks like now (continuous values).
+      function connectState() {
+        const ws = new WebSocket(api.replace("http", "ws") + "/api/v1/ws?topics=gameplay&events=false");
+        ws.onmessage = (e) => {
+          const msg = JSON.parse(e.data);
+          if (msg.type === "hello" || msg.type === "state") el("combo").textContent = msg.data.gameplay?.combo ?? 0;
+        };
+        ws.onclose = () => setTimeout(connectState, 1000);
+      }
+
+      // Events: something just happened (a miss, a combo break...). Filter with ?names=.
+      function connectEvents() {
+        const ws = new WebSocket(api.replace("http", "ws") + "/api/v1/events/ws?names=miss,comboBreak");
+        ws.onmessage = (e) => {
+          const msg = JSON.parse(e.data);
+          if (msg.type !== "event" || options.flashOnMiss === false) return;
+          const box = el("flash");
+          box.classList.add("miss");
+          requestAnimationFrame(() => requestAnimationFrame(() => box.classList.remove("miss")));
+        };
+        ws.onclose = () => setTimeout(connectEvents, 1000);
+      }
+
+      applyOptions();
+      connectState();
+      connectEvents();
+    </script>
+  </body>
+</html>

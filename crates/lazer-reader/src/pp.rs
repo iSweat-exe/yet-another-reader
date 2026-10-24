@@ -11,20 +11,7 @@ use rosu_pp::{Beatmap, Difficulty, GameMods, Performance};
 
 use crate::model::{Difficulty as DifficultyInfo, Hits, ModSettings, Pp};
 
-/// Where lazer keeps its data: `%APPDATA%\osu`, or the custom `FullPath` of `storage.ini`.
-#[must_use]
-pub fn storage_root() -> Option<PathBuf> {
-    let default = PathBuf::from(std::env::var_os("APPDATA")?).join("osu");
-    let custom = std::fs::read_to_string(default.join("storage.ini"))
-        .ok()
-        .and_then(|ini| {
-            ini.lines().find_map(|l| {
-                let (key, value) = l.split_once('=')?;
-                (key.trim() == "FullPath").then(|| PathBuf::from(value.trim()))
-            })
-        });
-    Some(custom.filter(|p| p.is_dir()).unwrap_or(default))
-}
+pub use crate::platform::paths::storage_root;
 
 /// Location of a content-addressed file: `files/<h[0]>/<h[0..2]>/<hash>` in the storage root.
 #[must_use]

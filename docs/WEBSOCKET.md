@@ -1,6 +1,6 @@
 # WebSocket
 
-L'application publie **deux flux** en direct. Un WebSocket est **poussé** : tu reçois le changement au moment
+L'application publie **trois flux** en direct. Un WebSocket est **poussé** : tu reçois le changement au moment
 où il est lu, sans interroger. C'est le bon choix pour tout ce qui s'affiche à l'écran. Les messages de cette page
 sont des **messages réels**, obtenus en se connectant au serveur. Pour les routes à interroger, voir
 [Routes REST](REST_API.md).
@@ -9,9 +9,10 @@ sont des **messages réels**, obtenus en se connectant au serveur. Pour les rout
 | --- | --- | --- | --- |
 | **État** | `ws://127.0.0.1:24051/api/v1/ws` | L'état du jeu, le statut de connexion, les événements | Échantillonné toutes les `pollIntervalMs` (33 ms), publié à chaque changement |
 | **Touches** | `ws://127.0.0.1:24051/api/v1/inputs/ws` | Les touches et boutons de souris tenus | Échantillonné toutes les `inputPollIntervalMs` (2 ms), publié à chaque changement |
+| **Événements** | `ws://127.0.0.1:24051/api/v1/events/ws` | Seulement les événements (une note touchée, un miss, une partie qui commence…), sans état | Publié au moment où ils ont lieu |
 
-Les deux flux sont **séparés** : les touches sont lues bien plus vite que le reste et ne ralentissent pas le flux de
-l'état. Tu peux ouvrir l'un, l'autre, ou les deux.
+Les flux sont **séparés** : les touches sont lues bien plus vite que le reste et ne ralentissent pas le flux de
+l'état, et le flux des événements n'envoie jamais l'état. Tu peux ouvrir celui que tu veux, ou plusieurs.
 
 > [!IMPORTANT] Seul `127.0.0.1` est écouté, sans authentification : le WebSocket n'est accessible que depuis la
 > machine du joueur. N'importe quelle origine (page `file://`, source navigateur OBS, autre port) peut s'y connecter.
@@ -24,12 +25,13 @@ l'état. Tu peux ouvrir l'un, l'autre, ou les deux.
   l'API REST pour t'initialiser.
 - Rien n'est envoyé tant que rien ne change.
 - `seq` est un compteur qui augmente à chaque changement : un trou dans la suite te dit qu'un message a été sauté.
-  Chaque flux a son **propre** compteur.
+  Chaque flux a son **propre** compteur (le flux des événements reprend celui de l'état : un événement porte le `seq` du `state` qui l'a provoqué).
 - Le client peut envoyer un message texte contenant `"ping"` (par exemple `{ "type": "ping" }`) : le serveur répond
   `{ "type": "pong" }`. Tout le reste (JSON invalide, autres types, trames binaires) est **ignoré**.
 - Les nombres sont écrits comme dans les réponses REST (`9.2`, pas `9.199999809265137`).
 - Si ton client est trop lent, les messages intermédiaires sont sautés et il reçoit directement l'état à jour : pas de
-  file qui grossit, pas de retard à rattraper.
+  file qui grossit, pas de retard à rattraper. Le flux des événements n'a pas d'état à renvoyer : un client trop lent **rate** simplement
+  des événements, sans message de resynchronisation.
 - Le serveur est **fermé proprement** : quand tu fermes la connexion, il répond (fermeture normale) ; quand
   l'application l'arrête (changement du port, API désactivée), il envoie un code de fermeture `1001`
   (*going away*) puis coupe. Voir [Fermeture et reconnexion](#fermeture-et-reconnexion).
@@ -46,7 +48,7 @@ l'état. Tu peux ouvrir l'un, l'autre, ou les deux.
 | `events` | `true` ou `false` | `false` désactive les messages `event` (par défaut : activés) |
 
 Les `topics` valides sont `connected`, `version`, `screen`, `screenType`, `playing`, `ruleset`, `mods`, `beatmap`,
-`difficulty`, `difficultyGraph`, `time`, `user` et `gameplay`.
+`difficulty`, `difficultyGraph`, `time`, `user`, `spectators`, `spectatorCount` et `gameplay`. La clé `personalBest` de l'état n'est **pas** un topic : avec `?topics=`, elle n'est pas transmise (sans `topics`, tu la reçois).
 
 ```
 ws://127.0.0.1:24051/api/v1/ws?topics=gameplay,time&events=false
@@ -249,9 +251,10 @@ La réponse à un `ping` du client.
 ### Événements
 
 Les événements décrivent des **transitions**, plus pratiques que de comparer deux états. Ils sont envoyés par le
-WebSocket de l'état (jamais par REST), dans le champ `event` d'un message `event`. Chaque événement a un `name`.
+WebSocket de l'état (sauf avec `?events=false`) et par le [WebSocket des événements](#flux-des-événements), jamais par REST, dans le champ `event` d'un message `event`. Chaque événement a un `name`.
 Quand plusieurs événements arrivent en même temps, ils sont envoyés dans cet ordre : `connectionChanged`,
-`screenChanged`, `beatmapChanged`, `modsChanged`, puis `playStarted` ou `playEnded`, puis `paused`, `resumed` ou `failed`.
+`screenChanged`, `beatmapChanged`, `modsChanged`, puis `playStarted` ou `playEnded`, puis `paused`, `resumed` ou `failed`,
+puis les notes : `hit` (`great`, puis `ok`, puis `meh`), `miss`, et enfin `comboBreak`.
 
 | `name` | Déclenché quand | Champs en plus |
 | --- | --- | --- |
@@ -264,7 +267,12 @@ Quand plusieurs événements arrivent en même temps, ils sont envoyés dans cet
 | `paused` | La partie est mise en pause | |
 | `resumed` | La partie reprend | |
 | `failed` | Le joueur échoue | |
+| `hit` | Des notes ont été touchées depuis le dernier échantillon | `judgement`, `count`, `errorsMs`, `combo` |
+| `miss` | Des notes ont été ratées depuis le dernier échantillon | `count`, `combo` |
+| `comboBreak` | Le combo vient de tomber | `lost` |
 
+> [!ASTUCE] Il n'y a pas d'événement « début de map » ni « fin de map » à part : ce sont `playStarted` et `playEnded`
+> (`reason` vaut `failed`, `completed` ou `quit`).
 Les exemples ci-dessous sont des messages `event` complets. Les objets `beatmap` et `result` sont abrégés (ce sont les objets
 [`Beatmap`](DATA_MODEL.md#beatmap) et [`Gameplay`](DATA_MODEL.md#gameplay) complets).
 
@@ -420,6 +428,74 @@ Les exemples ci-dessous sont des messages `event` complets. Les objets `beatmap`
 }
 ```
 
+**`hit`** : des notes ont été touchées. Il est envoyé quand les compteurs de jugements du jeu **montent** entre deux échantillons, une fois par jugement (`great`, `ok` ou `meh`).
+
+| Champ | Description |
+| --- | --- |
+| `judgement` | `great` (300), `ok` (100) ou `meh` (50) |
+| `count` | Combien de notes ont atterri entre deux échantillons (souvent `1`, parfois plus) |
+| `errorsMs` | Les erreurs de timing des **dernières** notes, en ms (négatif = trop tôt). **Vide** quand le jeu n'en a pas donné (sliders, spinners) ou quand plusieurs jugements ont monté en même temps (on ne sait plus quelle erreur va avec lequel) |
+| `combo` | Le combo après ces notes |
+
+Le serveur d'exemple joue deux jugements à chaque pas, donc ses `errorsMs` sont vides. Avec une seule note touchée et une erreur lue par le jeu, le champ vaut par exemple `"errorsMs": [-7.5]`.
+
+```json
+{
+  "event": {
+    "combo": 7,
+    "count": 7,
+    "errorsMs": [],
+    "judgement": "great",
+    "name": "hit"
+  },
+  "seq": 47,
+  "type": "event"
+}
+```
+
+```json
+{
+  "event": {
+    "combo": 7,
+    "count": 1,
+    "errorsMs": [],
+    "judgement": "ok",
+    "name": "hit"
+  },
+  "seq": 47,
+  "type": "event"
+}
+```
+
+**`miss`** : des notes ont été ratées depuis le dernier échantillon. `count` est leur nombre, `combo` le combo juste après.
+
+```json
+{
+  "event": {
+    "combo": 7,
+    "count": 1,
+    "name": "miss"
+  },
+  "seq": 47,
+  "type": "event"
+}
+```
+
+**`comboBreak`** : le combo vient de tomber. `lost` est le combo qui vient d'être **cassé**. Il part aussi quand un slider casse le combo **sans** miss : ne le compte donc pas comme un miss.
+
+```json
+{
+  "event": {
+    "lost": 42,
+    "name": "comboBreak"
+  },
+  "seq": 47,
+  "type": "event"
+}
+```
+
+Ces trois messages viennent de la même mise à jour (même `seq`) et arrivent dans l'ordre de la liste ci-dessus : `hit`, `miss`, puis `comboBreak`.
+
 ## Flux des touches
 
 `ws://127.0.0.1:24051/api/v1/inputs/ws` (aucun paramètre : les paramètres éventuels sont ignorés)
@@ -540,6 +616,138 @@ Les noms des touches sont ceux d'osu!framework. Voir [Touches en temps réel](AP
 }
 ```
 
+## Flux des événements
+
+`ws://127.0.0.1:24051/api/v1/events/ws`
+
+Seulement les [événements](#événements) : une note touchée, un miss, un combo cassé, une partie qui commence ou finit…
+Ce flux n'envoie **ni état ni statut**, donc rien à trier : c'est le plus léger pour un widget qui **réagit** (un flash sur
+un miss, un son à chaque combo cassé). Pour afficher des valeurs en continu (le combo, le score), utilise le
+[flux de l'état](#flux-de-létat). Le flux de l'état envoie les mêmes événements, sauf avec `?events=false`.
+
+### Filtrer les événements
+
+| Paramètre | Valeur | Effet |
+| --- | --- | --- |
+| `names` | liste séparée par des virgules | Ne garde que ces événements. Vide ou absent : tous |
+
+Les `names` valides sont `connectionChanged`, `screenChanged`, `beatmapChanged`, `modsChanged`, `playStarted`, `playEnded`, `paused`, `resumed`, `failed`, `hit`, `miss` et `comboBreak`.
+
+```
+ws://127.0.0.1:24051/api/v1/events/ws?names=hit,miss
+```
+
+**Refus à l'ouverture** : un nom inconnu (`?names=hit,nope`) refuse la poignée de main avec une réponse HTTP `400` (pas un WebSocket), en JSON :
+
+```json
+{"error":{"code":"invalidEvent","message":"unknown event \"nope\"; valid events: connectionChanged, screenChanged, beatmapChanged, modsChanged, playStarted, playEnded, paused, resumed, failed, hit, miss, comboBreak"}}
+```
+
+### Exemple d'utilisation
+
+Compter les notes et réagir aux ratés :
+
+```js
+const ws = new WebSocket("ws://127.0.0.1:24051/api/v1/events/ws?names=hit,miss,comboBreak,playStarted");
+let hits = 0;
+let misses = 0;
+
+ws.onmessage = (e) => {
+  const msg = JSON.parse(e.data);
+  if (msg.type !== "event") return; // le premier message est `hello`
+  const { event } = msg;
+  switch (event.name) {
+    case "playStarted":
+      hits = 0;
+      misses = 0;
+      break;
+    case "hit":
+      hits += event.count;
+      for (const ms of event.errorsMs) console.log(ms < 0 ? "trop tôt" : "trop tard", Math.abs(ms).toFixed(1), "ms");
+      break;
+    case "miss":
+      misses += event.count;
+      console.log(`miss ! (${hits} touchés, ${misses} ratés)`);
+      break;
+    case "comboBreak":
+      console.log(`combo perdu : ${event.lost}`);
+      break;
+  }
+};
+```
+
+```bash
+npx wscat -c "ws://127.0.0.1:24051/api/v1/events/ws?names=miss,comboBreak"
+```
+
+### Messages reçus
+
+| `type` | Quand | Champs |
+| --- | --- | --- |
+| [`hello`](#hello-2) | À la connexion | `apiVersion`, `events` |
+| [`event`](#event-1) | Une transition vient d'avoir lieu | `seq`, `event` |
+| `pong` | Réponse à ton `ping` | |
+
+#### `hello`
+
+Envoyé **une fois**, dès la connexion. Contrairement aux autres flux, il ne contient **pas d'état** : seulement la liste des événements que le serveur peut envoyer.
+
+```json
+{
+  "apiVersion": 1,
+  "events": [
+    "connectionChanged",
+    "screenChanged",
+    "beatmapChanged",
+    "modsChanged",
+    "playStarted",
+    "playEnded",
+    "paused",
+    "resumed",
+    "failed",
+    "hit",
+    "miss",
+    "comboBreak"
+  ],
+  "type": "hello"
+}
+```
+
+| Champ | Description |
+| --- | --- |
+| `apiVersion` | Version du contrat (`1`) |
+| `events` | Les noms de **tous** les événements possibles (pas seulement ceux que tu as demandés avec `names`) |
+
+#### `event`
+
+Même forme que sur le flux de l'état : `seq` est celui du `state` qui a provoqué l'événement, et `event` porte son `name` et ses champs
+(voir [Événements](#événements)). Un événement qui ne fait pas partie de tes `names` n'est pas envoyé.
+
+```json
+{
+  "event": {
+    "combo": 7,
+    "count": 7,
+    "errorsMs": [],
+    "judgement": "great",
+    "name": "hit"
+  },
+  "seq": 47,
+  "type": "event"
+}
+```
+
+Un client trop lent **rate** des événements : il n'y a pas de message de resynchronisation. Un trou dans `seq` ne veut pas dire que tu as raté quelque chose
+(le compteur avance aussi à chaque `state` que ce flux n'envoie pas).
+
+#### `pong`
+
+```json
+{
+  "type": "pong"
+}
+```
+
 ## Fermeture et reconnexion
 
 | Qui ferme | Ce que tu vois |
@@ -590,6 +798,7 @@ asyncio.run(main())
 | Afficher en direct (overlay, widget, source OBS) | WebSocket de l'état |
 | Suivre les touches avec la latence la plus faible | WebSocket des touches |
 | Réagir à un début ou une fin de partie | [Événements](#événements) |
+| Réagir à chaque note, à un miss ou à un combo cassé, sans l'état | [WebSocket des événements](#flux-des-événements) |
 | Lire une valeur une fois (script, `curl`) | [`GET /state`](REST_API.md#get-state) |
 | Télécharger le fond ou la musique | [`/assets/*`](REST_API.md#fichiers-de-la-beatmap) |
 | Savoir si quelque chose a changé depuis ton dernier appel | `seq` de [`GET /snapshot`](REST_API.md#get-snapshot) |
@@ -599,7 +808,7 @@ asyncio.run(main())
 | Symptôme | Cause probable |
 | --- | --- |
 | Connexion refusée | L'API est désactivée, le port n'est pas le bon, ou l'application n'est pas lancée |
-| Réponse HTTP `400` à l'ouverture | Un `topics` ou un `events` invalide (voir [Connexion](#connexion)) |
+| Réponse HTTP `400` à l'ouverture | Un `topics`, un `events` ou un `names` invalide (voir [Connexion](#connexion) et [Filtrer les événements](#filtrer-les-événements)) |
 | Rien ne vient après `hello` | Rien n'a changé : le flux n'envoie que les changements |
 | `connected: false` dans `data` | Le jeu n'est pas lancé ou pas encore lisible (voir `status`) |
 | Les touches ne bougent pas | osu! n'a pas le focus (le jeu ne voit pas les touches), ou le jeu n'est pas connecté |

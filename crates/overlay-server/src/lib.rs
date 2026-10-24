@@ -120,6 +120,7 @@ fn router_with_shutdown(
         .route("/api/v1/gameplay", get(routes::gameplay))
         .route("/api/v1/pp", get(routes::pp))
         .route("/api/v1/hit-errors", get(routes::hit_errors))
+        .route("/api/v1/personal-best", get(routes::personal_best))
         .route("/api/v1/inputs", get(routes::inputs))
         .route("/api/v1/inputs/ws", get(ws::inputs_handler))
         .route(
@@ -134,6 +135,7 @@ fn router_with_shutdown(
         .route("/api/v1/widgets", get(routes::widgets))
         .route("/api/v1/docs", get(routes::docs))
         .route("/api/v1/ws", get(ws::handler))
+        .route("/api/v1/events/ws", get(ws::events_handler))
         .fallback(not_found)
         .with_state(state);
     // Community widgets: plain static files, served from their folders only.

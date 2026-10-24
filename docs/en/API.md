@@ -63,6 +63,9 @@ const ws = new WebSocket("ws://127.0.0.1:24051/api/v1/ws");
 ws.onmessage = (e) => console.log(JSON.parse(e.data));
 ```
 
+There are **three WebSockets**: `/api/v1/ws` (the state, the status and the events), `/api/v1/inputs/ws` (the keys) and
+`/api/v1/events/ws` (the events alone, no state: a note hit, a miss, a broken combo). See [WebSocket](WEBSOCKET.md).
+
 > The default port is **24051**. It is changed in the application (the "Settings" card).
 
 ---
@@ -99,7 +102,7 @@ The values in effect can be read via `GET /api/v1/settings` (read-only).
 | Errors | HTTP code + body `{"error": {"code": "...", "message": "..."}}`. |
 | Version | `GET /api/v1` returns `apiVersion` (no trailing `/`: `/api/v1/` answers `404`). |
 
-Error codes: `notFound` (404) · `invalidTopic` (400) · `io` (500). The details are in the [REST routes](REST_API.md#errors).
+Error codes: `notFound` (404) · `invalidTopic` (400) · `invalidEvent` (400) · `io` (500). The details are in the [REST routes](REST_API.md#errors).
 
 ```json
 { "error": { "code": "notFound", "message": "no such endpoint; see /api/v1" } }
@@ -133,6 +136,8 @@ osu!framework (`osuTK.Input.Key` and `MouseButton`): letters (`Z`), digits (`Num
 | Display live (overlay, widget, OBS source) | [WebSocket](WEBSOCKET.md#state-stream) |
 | Follow the keys with the lowest latency | [Keys WebSocket](WEBSOCKET.md#input-stream) |
 | React to the start or the end of a play | [Events](WEBSOCKET.md#events) |
+| React to every note, a miss or a broken combo | [Events WebSocket](WEBSOCKET.md#event-stream) |
+| Compare the current play with your best score on the map | [`GET /personal-best`](REST_API.md#get-personal-best) |
 | Read a value once (script, `curl`) | [`GET /state`](REST_API.md#get-state) |
 | Download the background or the music | [`/assets/*`](REST_API.md#beatmap-files) |
 | Know whether something changed since your last call | `seq` of [`GET /snapshot`](REST_API.md#get-snapshot) |
@@ -229,6 +234,16 @@ if (map?.assets.background) {
     `url(http://127.0.0.1:24051/api/v1/assets/background?v=${map.sha256})`;
 }
 const progress = Math.min(1, Math.max(0, state.time.currentMs / map.lengthMs));
+```
+
+### Example: react to a broken combo (events)
+
+```js
+const ws = new WebSocket("ws://127.0.0.1:24051/api/v1/events/ws?names=miss,comboBreak");
+ws.onmessage = (e) => {
+  const msg = JSON.parse(e.data);
+  if (msg.type === "event" && msg.event.name === "comboBreak") console.log(`combo lost: ${msg.event.lost}`);
+};
 ```
 
 ### Example: Python

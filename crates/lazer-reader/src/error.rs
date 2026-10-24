@@ -23,6 +23,9 @@ pub enum ReaderError {
 
     #[error("no version resource in {}", .0.display())]
     NoVersionInfo(PathBuf),
+
+    #[error("not supported on this platform: {0}")]
+    Unsupported(&'static str),
 }
 
 pub type Result<T, E = ReaderError> = std::result::Result<T, E>;

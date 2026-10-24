@@ -71,6 +71,18 @@ follows the position. Untick then tick **Automatic anchor** to go back to automa
 > **Placement** section of the Properties: the 3×3 anchor selector with "Top right" in pink, the X, Y, W, H fields, and
 > the "Automatic anchor" switch with its help text. Show the on state then the off state (anchor fixed) side by side.
 
+## Smart alignment
+
+While dragging, the widget **snaps** by itself, and the editor draws what it snapped to:
+
+- **Edges and centres**: those of the screen and of the other widgets, with pink guide lines;
+- **The grid**, when it is shown;
+- **Equal spacing**: the widget takes the **gap that two other widgets already have between them**, or **centres itself between its two neighbours** so that both gaps are equal. Pink **dimension markers** show the distance in pixels. Only widgets that **overlap on the other axis** count: a gap between two widgets of different rows means nothing.
+
+`Alt` turns all the snapping off for the current gesture.
+
+The fields and buttons of [Alignment](#alignment) and [Spacing](#spacing) (align, distribute, gaps) set the same thing by hand. With several widgets selected, **Same size** (*Width*, *Height* or *Both*, in **Properties → Spacing**) gives all of them the size of the **first selected widget**; locked widgets do not change.
+
 ## Alignment
 
 The **Align** buttons (left, centre, right, top, middle, bottom) act on the selection: **one** object aligns to
@@ -123,7 +135,7 @@ with the original. A group that no longer contains more than one widget is disso
 
 | Section | Content |
 | --- | --- |
-| Header | The **Name** shown in the editor, duplicate, delete. |
+| Header | The **Name** shown in the editor, duplicate, delete. For a built-in widget, the **View source code** button opens, read-only, the file that defines it (the text is inside the application, nothing is downloaded). |
 | **Placement** | Anchor (3×3), `X`, `Y`, `W`, `H`, **Automatic anchor**. |
 | **Pages** | The pages where the widget is displayed (at least one). |
 | **Style** | Colour, **Text size** (multiplier), **Opacity** (a 0 to 100 % slider), **Text alignment** (auto = follows the anchor), **Animate numbers** and its duration. |
@@ -133,6 +145,15 @@ with the original. A group that no longer contains more than one widget is disso
 > [!SCREENSHOT] properties-panel
 > Complete **Properties** panel of a Score widget, the whole panel visible (in two images if needed): header with the
 > name, Placement, Pages (six switches), Style. Label each section with its name from the table.
+
+## Copying and pasting the style
+
+To give widgets the look of another one without touching their position or size:
+
+1. select the model widget, then **Copy the style** (properties header, the widget's context menu, `Ctrl + Alt + C` or the [command palette](#command-palette));
+2. select one or more widgets, then **Paste the style** (same places, `Ctrl + Alt + V`).
+
+The copied **style** is that of the *Style* and *Typography* sections: colour, text size, opacity, alignment, number animation and typography. **Locked** widgets are skipped. If several widgets are selected when you copy, the first one is the model. Pasting is **a single** undo step.
 
 ## Layers
 
@@ -155,8 +176,18 @@ game** badge marks the active one).
 > Top bar with the layout list open (default, Stream, Minimal, the active layout ticked) and, on the right, the New,
 > Duplicate, Rename, Import, Export, Delete buttons, the tooltip of one of them visible.
 
-**Import / export**: **Export…** gives the JSON of the layout (to copy or download); **Import…** accepts pasted
-JSON or a file. This is how you share a layout.
+**Import / export**: see [Sharing a layout](#sharing-a-layout).
+
+## Sharing a layout
+
+**Export…** gives two things:
+
+- a **`.yarlayout` file** (**Download file**): JSON that contains the layout **and every picture and font it uses**, encoded in base64. A layout alone only keeps the *ids* of its pictures and fonts, which mean nothing on another computer: the file carries them along. It weighs **40 MB** at most, for **64 files** at most;
+- a **share code** `yar1:…` (**Copy the code**): the same content, compressed, as a short text to paste in a message. It is only offered if it is **120,000 characters at most**; beyond that, share the file.
+
+A layout whose picture or font is no longer in the application cannot be exported: import it again, or remove the widget that uses it.
+
+**Import…** accepts a **file** (`.yarlayout` or `.json`), a `yar1:…` **code**, the pasted **text of a file**, or a **plain layout JSON** (what the editor exported before). The embedded pictures and fonts are imported **under the same id** (an id is the hash of its content), so the layout works straight away. An invalid file, or an embedded file that is neither a valid picture nor a valid font, is **refused**.
 
 ## Saved versions
 
@@ -176,7 +207,7 @@ With **Auto-save**, each change is saved half a second later and the in-game ove
 ## Command palette
 
 `Ctrl + K` (or the magnifier button) opens the command palette: one search to **add a widget**, **open a layout**,
-change the **theme** or the preview **background**, go to a **page**, or run an action (save, undo, grid, snapping). The
+change the **theme** or the preview **background**, go to a **page**, or run an action (save, undo, grid, snapping, copy or paste the style). The
 arrows move through the list, `Enter` runs, `Escape` closes. As you move through the list, the right side shows the
 result: the real widget, the theme's miniature or the background.
 
@@ -192,6 +223,7 @@ game) or **Live** (the real state of osu!lazer).
 | `Delete` / `Backspace` | Delete the selection |
 | `Ctrl + Z` / `Ctrl + Y` (or `Ctrl + Shift + Z`) | Undo / redo |
 | `Ctrl + C` / `Ctrl + V` / `Ctrl + D` | Copy / paste / duplicate |
+| `Ctrl + Alt + C` / `Ctrl + Alt + V` | Copy / paste the style |
 | `Ctrl + G` / `Ctrl + Shift + G` | Group / ungroup |
 | `Ctrl + A` | Select all |
 | Arrows (`Shift`: ×10) | Move the selection |

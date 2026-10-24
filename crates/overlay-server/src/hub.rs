@@ -7,7 +7,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use lazer_reader::events::{self, Event};
 use lazer_reader::input::InputState;
-use lazer_reader::model::{GameState, ReaderStatus};
+use lazer_reader::model::{GameState, PersonalBestGhost, ReaderStatus};
 use serde::Serialize;
 use serde_json::Value;
 use tokio::sync::broadcast;
@@ -112,6 +112,8 @@ struct Inner {
     input_window_count: AtomicUsize,
     /// Until when (ms since start) a REST request keeps the inputs being read.
     input_rest_until: AtomicU64,
+    /// The personal best of the current beatmap, with its samples (served at `/personal-best`).
+    ghost: RwLock<Option<Arc<PersonalBestGhost>>>,
 }
 
 /// Cheap to clone; all clones share the same state.
@@ -185,6 +187,7 @@ impl Hub {
             input_windows: Mutex::new(HashSet::new()),
             input_window_count: AtomicUsize::new(0),
             input_rest_until: AtomicU64::new(0),
+            ghost: RwLock::new(None),
         }))
     }
 
@@ -263,6 +266,15 @@ impl Hub {
         }
         let json = d.game_json.clone().unwrap_or_else(|| Arc::new(Value::Null));
         (d.seq, json)
+    }
+
+    #[must_use]
+    pub fn ghost(&self) -> Option<Arc<PersonalBestGhost>> {
+        read(&self.0.ghost).clone()
+    }
+
+    pub fn set_ghost(&self, ghost: Option<Arc<PersonalBestGhost>>) {
+        *write(&self.0.ghost) = ghost;
     }
 
     #[must_use]

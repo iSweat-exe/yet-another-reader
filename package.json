@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
     "docs:shots": "node scripts/list-screenshots.mjs",
+    "widget:new": "node scripts/new-widget.mjs",
     "version:check": "node scripts/version.mjs check",
     "version:set": "node scripts/version.mjs set",
     "build:signed": "node scripts/build-signed.mjs"
@@ -24,6 +27,7 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2",
     "@types/node": "^26.6.5",

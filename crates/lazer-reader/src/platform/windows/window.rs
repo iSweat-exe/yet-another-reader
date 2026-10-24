@@ -10,17 +10,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::BOOL;
 
-/// The game window's client area in physical screen pixels.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct GameWindow {
-    pub x: i32,
-    pub y: i32,
-    pub width: u32,
-    pub height: u32,
-    /// The game window is the foreground window.
-    pub focused: bool,
-    pub minimized: bool,
-}
+pub use crate::platform::types::GameWindow;
 
 struct Search {
     pid: u32,

@@ -93,6 +93,53 @@ See [In-game overlay](OVERLAY.md) for performance and fullscreen.
 
 Under the checkbox, the application indicates whether RTSS is detected. See [In-game overlay](OVERLAY.md).
 
+## Now playing
+
+The current map, written to **files**: a text and the cover picture. An OBS text source and image source, or a chat bot, can read a file: no browser source needed.
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| **Write the current map to files** | off | Turns on writing the files below. Off, nothing is written (files already there are not deleted). |
+| **Text** (`Text`) | `{artist} - {title} [{version}]` | The template of the text of `nowplaying.txt`, with placeholders in braces (see below). 500 characters at most. |
+| **Folder** (`Folder`) | empty | Where the files are written. Empty: the `nowplaying` folder of the [config folder](#where-are-my-files). |
+
+Two files are written in this folder:
+
+| File | Content |
+| --- | --- |
+| `nowplaying.txt` | The text, **on a single line** (newlines become spaces). Empty when no map is selected. It is rewritten **only when its text changes**: the application checks twice a second. |
+| `cover.jpg`, `cover.png` or `cover.webp` | A copy of the beatmap's background, with the extension of the background file (`jpg` by default). The other extensions are removed: there is only ever one cover. No cover if the map has no background. |
+
+The placeholders of the text:
+
+| Placeholder | Value |
+| --- | --- |
+| `{artist}`, `{title}` | Artist and title (romanised). |
+| `{artistUnicode}`, `{titleUnicode}` | Original artist and title. |
+| `{version}` | Name of the difficulty. |
+| `{creator}` | Mapper. |
+| `{mods}` | The active mods, joined: `HDDT`. |
+| `{stars}` | The stars with the mods, to 2 decimals. |
+| `{bpm}` | The main BPM, rounded to a whole number. |
+| `{link}` | `https://osu.ppy.sh/b/<id>`; empty for an unsubmitted map. |
+| `{score}`, `{combo}`, `{accuracy}`, `{pp}` | The values of the play in progress: score, combo, accuracy (from `0` to `1`, 2 decimals) and live PP (rounded to a whole number). They are **0** outside a play. |
+
+An unknown placeholder is **left as typed** (`{nope}` stays `{nope}`): a typo is visible straight away.
+
+> [!TIP] In **OBS**, add a **Text** source and tick *Read from file* (`nowplaying.txt`), then an **Image** source on
+> `cover.jpg`. They update by themselves when you change map. The cover's extension follows the map's background: if your maps
+> have several types, only one file exists at a time. A **chat bot** that can read a text file can answer a `!np` command with
+> the content of `nowplaying.txt`.
+
+With a text such as `{artist} - {title} [{version}] +{mods} ({stars}★) {link}`, the file contains for example:
+
+```text
+whyalive x Denya8 - hyperpop luv <3 [collab expert] +HDDT (7.40★) https://osu.ppy.sh/b/4859840
+```
+
+> [!NOTE] The config folder is not shown anywhere in the application. The editor's **Open the widgets folder** button opens
+> `widgets`: `nowplaying` is its neighbouring folder, in the same parent folder.
+
 ## Where are my files?
 
 Everything is in the application's configuration folder (on Windows: `%APPDATA%\io.github.isweat-exe.yet-another-reader`):
@@ -102,6 +149,8 @@ Everything is in the application's configuration folder (on Windows: `%APPDATA%\
 | `settings.json` | The settings above and the active layout. |
 | `overlays\<name>.json` | One layout per file (see [Layout format](LAYOUT.md)). |
 | `widgets\<folder>\` | The community widgets (see [Community widgets](WIDGETS.md)). |
+| `nowplaying\` | `nowplaying.txt` and `cover.*` (see [Now playing](#now-playing)), unless you chose another folder. |
+| `records\<sha256>.json` | The best score of every beatmap the application has seen (see [`GET /personal-best`](REST_API.md#get-personal-best)). |
 
 To **back up or share** your configuration, copy these files; to **start from scratch**, close the application and
 delete the folder.

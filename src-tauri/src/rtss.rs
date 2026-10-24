@@ -7,6 +7,10 @@
 //!
 //! RTSS renders plain text with a few formatting tags (position, colour, size), so this shows
 //! a compact text HUD rather than the widget layout.
+//!
+//! Off Windows the shared-memory layout below is only exercised by the tests, so its items are
+//! allowed to be unused there.
+#![cfg_attr(not(windows), allow(dead_code))]
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
@@ -17,6 +21,8 @@ use lazer_reader::model::GameState;
 use overlay_server::Hub;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
+
+use crate::platform::write_osd;
 
 /// Name under which our text slot is registered in RTSS.
 pub const OWNER: &str = "YetAnotherReader";
@@ -101,7 +107,7 @@ unsafe fn cstr_is(src: *const u8, capacity: usize, expected: &str) -> bool {
 /// # Safety
 /// `base` must point to a readable and writable RTSS shared-memory view of at least the size
 /// the header describes.
-unsafe fn write_locked(base: *mut u8, owner: &str, text: &str) -> Result<(), String> {
+pub(crate) unsafe fn write_locked(base: *mut u8, owner: &str, text: &str) -> Result<(), String> {
     // SAFETY: every dereference below is inside the view, whose layout comes from the header
     // that is validated first.
     unsafe {
@@ -154,31 +160,6 @@ unsafe fn write_locked(base: *mut u8, owner: &str, text: &str) -> Result<(), Str
         let frame = base.add(OFF_OSD_FRAME).cast::<u32>();
         frame.write_unaligned(frame.read_unaligned().wrapping_add(1));
         Ok(())
-    }
-}
-
-#[cfg(windows)]
-fn write_osd(text: &str) -> Result<(), String> {
-    use windows::Win32::Foundation::CloseHandle;
-    use windows::Win32::System::Memory::{
-        FILE_MAP_ALL_ACCESS, MapViewOfFile, OpenFileMappingW, UnmapViewOfFile,
-    };
-    use windows::core::w;
-
-    // SAFETY: the view is mapped here, only passed to `write_locked` (which stays inside it
-    // using the validated header), and unmapped before returning.
-    unsafe {
-        let handle = OpenFileMappingW(FILE_MAP_ALL_ACCESS.0, false, w!("RTSSSharedMemoryV2"))
-            .map_err(|_| "RivaTuner (RTSS) is not running".to_string())?;
-        let view = MapViewOfFile(handle, FILE_MAP_ALL_ACCESS, 0, 0, 0);
-        if view.Value.is_null() {
-            let _ = CloseHandle(handle);
-            return Err("could not map the RTSS shared memory".into());
-        }
-        let result = write_locked(view.Value.cast::<u8>(), OWNER, text);
-        let _ = UnmapViewOfFile(view);
-        let _ = CloseHandle(handle);
-        result
     }
 }
 
@@ -263,7 +244,6 @@ pub fn spawn(
         .map(drop)
 }
 
-#[cfg(windows)]
 fn run(app: &AppHandle, hub: &Hub, control: &RtssControl, poll_ms: &AtomicU64) {
     let mut last_text = String::new();
     let mut last_write = Instant::now();
@@ -334,9 +314,6 @@ fn run(app: &AppHandle, hub: &Hub, control: &RtssControl, poll_ms: &AtomicU64) {
         }
     }
 }
-
-#[cfg(not(windows))]
-fn run(_: &AppHandle, _: &Hub, _: &RtssControl, _: &AtomicU64) {}
 
 #[cfg(test)]
 mod tests {

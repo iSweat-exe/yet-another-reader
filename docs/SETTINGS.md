@@ -95,6 +95,53 @@ Voir [Overlay en jeu](OVERLAY.md) pour les performances et le plein écran.
 
 Sous la case, l'application indique si RTSS est détecté. Voir [Overlay en jeu](OVERLAY.md).
 
+## Now playing
+
+La map en cours, écrite dans des **fichiers** : un texte et la pochette. Une source texte et une source image d'OBS, ou un bot de chat, savent lire un fichier : pas besoin de source navigateur.
+
+| Réglage | Défaut | Effet |
+| --- | --- | --- |
+| **Écrire la map en cours dans des fichiers** | désactivé | Active l'écriture des fichiers ci-dessous. Désactivé, rien n'est écrit (les fichiers déjà là ne sont pas effacés). |
+| **Texte** (`Text`) | `{artist} - {title} [{version}]` | Le modèle du texte de `nowplaying.txt`, avec des variables entre accolades (voir plus bas). 500 caractères au plus. |
+| **Dossier** (`Folder`) | vide | Où les fichiers sont écrits. Vide : le dossier `nowplaying` du [dossier de configuration](#où-sont-mes-fichiers). |
+
+Deux fichiers sont écrits dans ce dossier :
+
+| Fichier | Contenu |
+| --- | --- |
+| `nowplaying.txt` | Le texte, **sur une seule ligne** (les retours à la ligne deviennent des espaces). Vide quand aucune map n'est sélectionnée. Il n'est réécrit **que si son texte change** : l'application regarde deux fois par seconde. |
+| `cover.jpg`, `cover.png` ou `cover.webp` | Une copie du fond de la beatmap, avec l'extension du fichier de fond (`jpg` par défaut). Les autres extensions sont supprimées : il n'y a jamais qu'une pochette. Pas de pochette si la map n'a pas de fond. |
+
+Les variables du texte :
+
+| Variable | Valeur |
+| --- | --- |
+| `{artist}`, `{title}` | Artiste et titre (romanisés). |
+| `{artistUnicode}`, `{titleUnicode}` | Artiste et titre d'origine. |
+| `{version}` | Nom de la difficulté. |
+| `{creator}` | Mapper. |
+| `{mods}` | Les mods actifs, collés : `HDDT`. |
+| `{stars}` | Les étoiles avec les mods, à 2 décimales. |
+| `{bpm}` | Le BPM principal, arrondi à l'entier. |
+| `{link}` | `https://osu.ppy.sh/b/<id>` ; vide pour une map non publiée. |
+| `{score}`, `{combo}`, `{accuracy}`, `{pp}` | Les valeurs de la partie en cours : score, combo, précision (de `0` à `1`, 2 décimales) et PP en direct (arrondis à l'entier). Elles valent **0** en dehors d'une partie. |
+
+Une variable inconnue est **laissée telle quelle** (`{nope}` reste `{nope}`) : une faute de frappe se voit tout de suite.
+
+> [!ASTUCE] Dans **OBS**, ajoute une source **Texte** et coche *Lire à partir d'un fichier* (`nowplaying.txt`), puis une source
+> **Image** sur `cover.jpg`. Elles se mettent à jour toutes seules quand tu changes de map. L'extension de la pochette suit le
+> fond de la map : si tes maps en ont de plusieurs types, un seul fichier existe à la fois. Un **bot de chat** qui sait lire un
+> fichier texte peut répondre à une commande `!np` avec le contenu de `nowplaying.txt`.
+
+Avec un texte comme `{artist} - {title} [{version}] +{mods} ({stars}★) {link}`, le fichier contient par exemple :
+
+```text
+whyalive x Denya8 - hyperpop luv <3 [collab expert] +HDDT (7.40★) https://osu.ppy.sh/b/4859840
+```
+
+> [!NOTE] Le dossier de configuration n'est affiché nulle part dans l'application. Le bouton **Ouvrir le dossier des widgets**
+> de l'éditeur ouvre `widgets` : `nowplaying` est son dossier voisin, dans le même dossier parent.
+
 ## Où sont mes fichiers ?
 
 Tout est dans le dossier de configuration de l'application (sous Windows : `%APPDATA%\io.github.isweat-exe.yet-another-reader`) :
@@ -104,6 +151,8 @@ Tout est dans le dossier de configuration de l'application (sous Windows : `%APP
 | `settings.json` | Les réglages ci-dessus et le layout actif. |
 | `overlays\<nom>.json` | Un layout par fichier (voir [Format des layouts](LAYOUT.md)). |
 | `widgets\<dossier>\` | Les widgets communautaires (voir [Widgets communautaires](WIDGETS.md)). |
+| `nowplaying\` | `nowplaying.txt` et `cover.*` (voir [Now playing](#now-playing)), sauf si tu as choisi un autre dossier. |
+| `records\<sha256>.json` | Le meilleur score de chaque beatmap vue par l'application (voir [`GET /personal-best`](REST_API.md#get-personal-best)). |
 
 Pour **sauvegarder ou partager** ta configuration, copie ces fichiers ; pour **repartir de zéro**, ferme
 l'application et supprime le dossier.

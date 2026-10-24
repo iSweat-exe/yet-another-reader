@@ -10,13 +10,46 @@ Aucune compilation, aucun code natif : un dossier suffit.
 1. Dans l'éditeur, ouvre le **dossier des widgets** (« Ouvrir le dossier des widgets » sous
    *Communauté*). Au premier lancement il contient un exemple, `hello-score`.
 2. Copie ce dossier, renomme-le (`mon-widget`), modifie-le.
-3. Clique sur **Actualiser** dans la palette : ton widget apparaît, ajoute-le au layout.
+3. Ton widget apparaît dans la palette (elle se met à jour toute seule, voir [Rechargement à chaud](#rechargement-à-chaud) ; **Actualiser** force la relecture) : ajoute-le au layout.
+
+Pour partir d'un modèle plutôt que de copier un dossier, voir [Créer un widget depuis un modèle](#créer-un-widget-depuis-un-modèle).
 
 > [!SCREENSHOT] community-palette
 > Section **Communauté** de la palette : le widget d'exemple « Hello score » avec son icône, le bouton Actualiser
 > (flèches circulaires) à côté du titre et le lien « Ouvrir le dossier des widgets » en bas.
 
 > [!IMPORTANT] L'**API locale doit être activée** (réglages) : les widgets sont servis par elle.
+
+## Créer un widget depuis un modèle
+
+Un **générateur** crée le dossier d'un widget qui marche déjà. Deux façons de l'utiliser :
+
+- dans l'éditeur, le bouton **Nouveau widget…** de la section *Communauté* de la palette (dans l'application seulement) : donne un nom, c'est fait ;
+- en ligne de commande, depuis le dépôt du projet :
+
+```bash
+npm run widget:new -- "Mon widget"
+npm run widget:new -- "Mon widget" --dir ./mes-widgets
+```
+
+Sans `--dir`, le widget est créé dans le **dossier des widgets de l'application** (sous Windows : `%APPDATA%\io.github.isweat-exe.yet-another-reader\widgets`). Le nom (40 caractères au plus) devient le nom du widget, et son dossier en
+est une version en minuscules, mots séparés par des tirets (`Mon widget !` donne `mon-widget`). Un dossier qui existe déjà n'est **jamais touché** : le nom suivant prend un suffixe (`mon-widget-2`).
+
+Le modèle, copié depuis `docs/examples/widget-template/`, contient deux fichiers :
+
+- `manifest.json` : un widget de 320 × 120 avec **quatre options** : `label` (texte), `color` (couleur), `flashOnMiss` (case à cocher) et `size` (nombre) ;
+- `index.html` : une page qui affiche le **combo en direct**, lu sur le [WebSocket de l'état](WEBSOCKET.md#flux-de-létat) (`/api/v1/ws?topics=gameplay&events=false`), et qui **clignote en rouge sur un miss**, lu sur le [WebSocket des événements](WEBSOCKET.md#flux-des-événements) (`/api/v1/events/ws?names=miss,comboBreak`). Les options viennent de l'URL au premier affichage, puis des messages `yar:options`.
+
+Une fois créé, le widget est dans la palette : ajoute-le au layout, puis modifie `index.html`.
+
+## Rechargement à chaud
+
+L'application surveille le dossier des widgets : **chaque fois que tu enregistres, ajoutes ou supprimes un fichier** d'un dossier de widget, ce widget est rechargé dans l'overlay **et** dans l'éditeur, et la liste de la palette est mise à jour. Tu peux donc modifier `index.html` avec l'overlay ouvert et voir le résultat tout de suite, sans cliquer sur **Actualiser**.
+
+- Le dossier est **sondé toutes les 0,5 seconde** : l'application compare les tailles et les dates de modification, elle **ne lit pas** les fichiers. Ça marche pareil sur un disque réseau ou un dossier synchronisé.
+- Seul le widget modifié recharge sa page (son état de page repart de zéro) ; les autres ne bougent pas.
+- Un nouveau dossier apparaît dans la palette, un dossier supprimé en disparaît. Un manifeste à moitié écrit est surveillé aussi : le widget se recharge dès qu'il est corrigé.
+- Sont comptés les fichiers du dossier du widget et de ses sous-dossiers (jusqu'à 4 niveaux et 400 fichiers par widget), sauf les sous-dossiers dont le nom commence par un point.
 
 ## Structure
 
@@ -140,6 +173,37 @@ input.onmessage = (e) => {
 
 Tant que ton widget garde ce WebSocket ouvert, l'application lit les touches dans le jeu.
 
+## Réagir aux événements
+
+Pour **réagir** à quelque chose (une note, un miss, un combo cassé, le début d'une partie), le [WebSocket des événements](WEBSOCKET.md#flux-des-événements) est plus simple que de comparer deux états : il n'envoie que les événements, et `?names=` garde ceux qui t'intéressent. Garde le flux de l'état pour les valeurs affichées en continu.
+
+```js
+const params = new URLSearchParams(location.search);
+const api = params.get("api");
+
+function pulse(color) {
+  document.body.animate([{ background: color }, { background: "transparent" }], 300);
+}
+
+// Ouvre le flux des événements et appelle onEvent pour chacun de ceux demandés.
+function listen(names, onEvent) {
+  const ws = new WebSocket(api.replace("http", "ws") + `/api/v1/events/ws?names=${names.join(",")}`);
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === "event") onEvent(msg.event);
+  };
+  ws.onclose = () => setTimeout(() => listen(names, onEvent), 1000); // se reconnecte si l'API redémarre
+}
+
+listen(["hit", "miss", "comboBreak"], (event) => {
+  if (event.name === "hit" && event.judgement === "great") pulse("#38bdf8");
+  if (event.name === "miss") pulse("#f87171");
+  if (event.name === "comboBreak") console.log(`combo perdu : ${event.lost}`);
+});
+```
+
+`hit` donne le `judgement`, le `count` de notes et, quand le jeu les fournit, leurs erreurs de timing (`errorsMs`) ; `miss` le `count` ; `comboBreak` le combo perdu (`lost`), aussi quand un slider casse le combo sans miss. Tous les champs sont dans [Événements](WEBSOCKET.md#événements).
+
 ## Bonnes pratiques
 
 - **Fond transparent** : `html, body { background: transparent; }` — le widget est dessiné
@@ -151,7 +215,7 @@ Tant que ton widget garde ce WebSocket ouvert, l'application lit les touches dan
 - **Reste léger** : l'overlay est peint par-dessus le jeu. Évite les animations permanentes ou les
   effets coûteux (flous, grandes ombres) ; un rafraîchissement faible suffit pour du texte.
 - **Filtre ce que tu reçois** : `?topics=gameplay,time` réduit le trafic ; `&events=false`
-  coupe les événements si tu n'en as pas besoin.
+  coupe les événements si tu n'en as pas besoin. Pour les seuls événements, `/api/v1/events/ws?names=miss,comboBreak`.
 
 ## Sécurité : ce que ton widget peut (et ne peut pas) faire
 

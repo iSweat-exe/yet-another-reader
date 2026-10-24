@@ -64,6 +64,9 @@ const ws = new WebSocket("ws://127.0.0.1:24051/api/v1/ws");
 ws.onmessage = (e) => console.log(JSON.parse(e.data));
 ```
 
+Il y a **trois WebSockets** : `/api/v1/ws` (l'état, le statut et les événements), `/api/v1/inputs/ws` (les touches) et
+`/api/v1/events/ws` (les événements seuls, sans état : une note touchée, un miss, un combo cassé). Voir [WebSocket](WEBSOCKET.md).
+
 > Le port par défaut est **24051**. Il se change dans l'application (carte « Réglages »).
 
 ---
@@ -100,7 +103,7 @@ Les valeurs en vigueur sont lisibles via `GET /api/v1/settings` (lecture seule).
 | Erreurs | Code HTTP + corps `{"error": {"code": "...", "message": "..."}}`. |
 | Version | `GET /api/v1` renvoie `apiVersion` (pas de `/` final : `/api/v1/` répond `404`). |
 
-Codes d'erreur : `notFound` (404) · `invalidTopic` (400) · `io` (500). Le détail est dans les [routes REST](REST_API.md#erreurs).
+Codes d'erreur : `notFound` (404) · `invalidTopic` (400) · `invalidEvent` (400) · `io` (500). Le détail est dans les [routes REST](REST_API.md#erreurs).
 
 ```json
 { "error": { "code": "notFound", "message": "no such endpoint; see /api/v1" } }
@@ -136,6 +139,8 @@ sont ceux d'osu!framework (`osuTK.Input.Key` et `MouseButton`) : lettres (`Z`), 
 | Afficher en direct (overlay, widget, source OBS) | [WebSocket](WEBSOCKET.md#flux-de-létat) |
 | Suivre les touches avec la latence la plus faible | [WebSocket des touches](WEBSOCKET.md#flux-des-touches) |
 | Réagir à un début ou une fin de partie | [Événements](WEBSOCKET.md#événements) |
+| Réagir à chaque note, à un miss ou à un combo cassé | [WebSocket des événements](WEBSOCKET.md#flux-des-événements) |
+| Comparer la partie en cours avec ton meilleur score sur la map | [`GET /personal-best`](REST_API.md#get-personal-best) |
 | Lire une valeur une fois (script, `curl`) | [`GET /state`](REST_API.md#get-state) |
 | Télécharger le fond ou la musique | [`/assets/*`](REST_API.md#fichiers-de-la-beatmap) |
 | Savoir si quelque chose a changé depuis ton dernier appel | `seq` de [`GET /snapshot`](REST_API.md#get-snapshot) |
@@ -232,6 +237,16 @@ if (map?.assets.background) {
     `url(http://127.0.0.1:24051/api/v1/assets/background?v=${map.sha256})`;
 }
 const progress = Math.min(1, Math.max(0, state.time.currentMs / map.lengthMs));
+```
+
+### Exemple : réagir à un combo cassé (événements)
+
+```js
+const ws = new WebSocket("ws://127.0.0.1:24051/api/v1/events/ws?names=miss,comboBreak");
+ws.onmessage = (e) => {
+  const msg = JSON.parse(e.data);
+  if (msg.type === "event" && msg.event.name === "comboBreak") console.log(`combo perdu : ${msg.event.lost}`);
+};
 ```
 
 ### Exemple : Python

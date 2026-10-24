@@ -4,6 +4,9 @@ import { EMPTY_GAME_STATE, type GameState, type LogLine, type PersonalBestGhost,
 /** True when running inside the Tauri webview (false in a plain browser, e.g. for design previews). */
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+/** Port the browser preview points at; the end-to-end tests move it so they never meet a running app. */
+const MOCK_API_PORT = Number(import.meta.env.VITE_YAR_API_PORT) || 24051;
+
 const MOCK_SPECTATORS: GameState["spectators"] = [
   [2, "peppy"],
   [124493, "Cookiezi"],
@@ -191,8 +194,8 @@ export function startMock(): () => void {
   };
   useReaderStore.setState({
     status: { phase: "connected", version: "2026.1005.0-lazer+9a10d935", profile: "mock", connectMs: 0 },
-    settings: { pollIntervalMs: 33, inputPollIntervalMs: 2, apiEnabled: true, apiPort: 24051, overlayEnabled: true, overlayOnlyWhenFocused: true, overlayFps: 30, activeLayout: "default", language: "auto", rtssEnabled: false, rtssX: 40, rtssY: 40, autoUpdateCheck: true, nowPlayingEnabled: false, nowPlayingDir: "", nowPlayingTemplate: "{artist} - {title} [{version}]" },
-    api: { enabled: true, running: true, port: 24051, url: "http://127.0.0.1:24051", error: null },
+    settings: { pollIntervalMs: 33, inputPollIntervalMs: 2, apiEnabled: true, apiPort: MOCK_API_PORT, overlayEnabled: true, overlayOnlyWhenFocused: true, overlayFps: 30, activeLayout: "default", language: "auto", rtssEnabled: false, rtssX: 40, rtssY: 40, autoUpdateCheck: true, nowPlayingEnabled: false, nowPlayingDir: "", nowPlayingTemplate: "{artist} - {title} [{version}]" },
+    api: { enabled: true, running: true, port: MOCK_API_PORT, url: `http://127.0.0.1:${MOCK_API_PORT}`, error: null },
     update: { phase: "available", version: "1.1.0", current: "0.1.0", notes: "- Faster game detection\n- A trail effect for the key overlay\n- Automatic updates", date: null },
   });
   apply();

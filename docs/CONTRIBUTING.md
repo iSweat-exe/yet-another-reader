@@ -36,7 +36,7 @@ npm run dev
 ```
 
 Puis ouvre `http://localhost:1420/` dans un navigateur : l'interface tourne avec de **fausses données**
-animées (`src/lib/mock.ts`), sans Tauri. Utile pour l'éditeur et les widgets :
+animées (`src/lib/state/mock.ts`), sans Tauri. Utile pour l'éditeur et les widgets :
 
 - `http://localhost:1420/?tab=editor` : directement l'éditeur ;
 - `http://localhost:1420/?bg=1#overlay` : l'overlay sur un fond de substitution.
@@ -52,6 +52,9 @@ animées (`src/lib/mock.ts`), sans Tauri. Utile pour l'éditeur et les widgets :
 | `npm run tauri dev` | Application complète en développement. |
 | `npm run dev` | Interface seule, dans le navigateur. |
 | `npm test` | Tests de l'interface (Vitest). |
+| `npm run e2e` | Tests de bout en bout (Playwright), voir [Tests de bout en bout](#tests-de-bout-en-bout). |
+| `npm run e2e:ui` | Les mêmes, dans l'interface de Playwright. |
+| `npm run widget:new -- "Mon widget"` | Crée un widget communautaire depuis le modèle (voir [Widgets communautaires](WIDGETS.md#créer-un-widget-depuis-un-modèle)). |
 | `npx tsc --noEmit` | Vérification des types TypeScript. |
 | `npm run build` | Vérification des types puis build du front. |
 | `cargo test --workspace` | Tests Rust. |
@@ -74,12 +77,12 @@ animées (`src/lib/mock.ts`), sans Tauri. Utile pour l'éditeur et les widgets :
 - Les types TypeScript sont stricts ; `npx tsc --noEmit` doit passer.
 - Les widgets lisent le store avec un **sélecteur étroit** (`useReaderStore((s) => ...)`) pour ne
   se redessiner que quand leur donnée change.
-- Le format du layout est défini dans `src/overlay/layout.ts` ; toute évolution doit rester
+- Le format du layout est défini dans `src/overlay/model/layout.ts` ; toute évolution doit rester
   **rétrocompatible** (`migrateLayout` lit les anciens documents).
 - L'état de l'éditeur est dans `src/editor/useEditor.ts` ; la géométrie (alignement, espacement,
-  magnétisme) est du code pur dans `src/editor/geometry.ts`, testé.
+  magnétisme) est du code pur dans `src/editor/canvas/geometry.ts`, testé.
 - Respecte le style de l'interface existante (composants de `src/editor/fields.tsx`, icônes de
-  `src/components/Icon.tsx`).
+  `src/components/icons/Icon.tsx`).
 
 ### Traductions
 
@@ -91,7 +94,7 @@ clés** (le type `Messages` et un test le vérifient). Ajoute la clé dans les d
 L'API est un contrat public (`/api/v1`) : ajouter un champ est sans risque ; retirer ou changer le sens
 d'un champ est un changement cassant. Toute modification de l'API met à jour les quatre pages de la documentation
 ([Guide](API.md), [Routes REST](REST_API.md), [WebSocket](WEBSOCKET.md) et [Modèle de données](DATA_MODEL.md)), qui sont aussi
-servies par l'application sur `/api/v1/docs`, et le miroir `src/lib/types.ts`.
+servies par l'application sur `/api/v1/docs`, et le miroir `src/lib/state/types.ts`.
 
 Pour essayer l'API (ou développer un client) **sans osu!**, lance le serveur d'exemple : il rejoue une fausse partie, avec ses
 touches, ses événements et un fond d'écran, sur toutes les routes.
@@ -114,14 +117,16 @@ Cette documentation est un ensemble de fichiers Markdown dans `docs/`, affichés
    sélecteur `useReaderStore((s) => ...)`. Les fonctions `fontSizeFor`, `animationMsFor` et
    `AnimatedNumber` donnent une taille de texte et des chiffres animés cohérents avec les autres widgets.
 2. Ajoute-le à la liste exportée du fichier (`BASIC_WIDGETS`, `INFO_WIDGETS`, `PLAYER_WIDGETS`…) avec son
-   `type`, la clé de traduction de son nom (`widget.<type>`) et sa taille par défaut.
+   `type`, la clé de traduction de son nom (`widget.<type>`) et sa taille par défaut. Pour un nouveau fichier,
+   ajoute-le aussi à `GROUPS` dans `src/widgets/registry.ts` : cette liste donne `WIDGETS` et le fichier que
+   montre *Voir le code source* (un test vérifie que chaque `type` se retrouve dans son fichier).
 3. Range-le dans une catégorie de la palette (`WIDGET_CATEGORIES` dans `src/widgets/registry.ts`) et
-   donne-lui une icône dans `src/editor/widgetIcons.ts`.
+   donne-lui une icône dans `src/editor/model/widgetIcons.ts`.
 4. Ajoute le nom dans `fr.ts` et `en.ts`.
 5. Documente-le dans [Widgets intégrés](BUILTIN_WIDGETS.md).
 
 Si le widget a besoin d'une donnée que le reader ne publie pas encore, commence par l'ajouter côté
-`lazer-reader` (modèle `model.rs`, lecture dans `readers.rs`/`session.rs`), puis dans `src/lib/types.ts`
+`lazer-reader` (modèle `model.rs`, lecture dans `readers.rs`/`session.rs`), puis dans `src/lib/state/types.ts`
 et dans [API locale](API.md).
 
 ## Images et sons d'osu!lazer
@@ -129,19 +134,19 @@ et dans [API locale](API.md).
 Les textures d'osu!lazer sont dans `public/Textures/` (logo, icônes, drapeaux, médailles, fonds, curseurs, avatar
 invité) et les sons de l'interface dans `public/Samples/UI/`. Ce sont des URL simples : rien n'est importé dans le bundle.
 
-- **Chemins** : passe par `src/lib/assets.ts` (`LOGO_URL`, `GUEST_AVATAR_URL`, `rulesetIconUrl`, `flagUrl`,
-  `menuBackgroundUrl`) et `src/lib/mods.ts` (`modIconUrl`) plutôt que d'écrire un chemin à la main. Un test vérifie que
+- **Chemins** : passe par `src/lib/media/assets.ts` (`LOGO_URL`, `GUEST_AVATAR_URL`, `rulesetIconUrl`, `flagUrl`,
+  `menuBackgroundUrl`) et `src/lib/state/mods.ts` (`modIconUrl`) plutôt que d'écrire un chemin à la main. Un test vérifie que
   les fichiers existent.
 - **Fonds** : un fond est décoratif, sombre, flou et chargé en différé (`<Backdrop>` : `loading="lazy"`,
   `decoding="async"`, fondu à l'arrivée). Les fonds de menu sont des **webp** de moins de 20 Ko ; leurs originaux jpg
   (1 Mo chacun) sont gardés hors du build, dans `assets-src/menu/`. **Aucun fond dans l'overlay en jeu** par défaut.
 - **Images dans un widget** : toujours `decoding="async"`, une taille fixe, et un repli (`onError`) comme pour l'avatar.
-- **Icônes** : l'interface garde un seul jeu d'icônes, `<Icon name="…" />` (`src/components/Icon.tsx`) ; les textures
+- **Icônes** : l'interface garde un seul jeu d'icônes, `<Icon name="…" />` (`src/components/icons/Icon.tsx`) ; les textures
   servent aux images qui *représentent* quelque chose du jeu (mode, mod, pays, avatar).
   - Quand une icône d'osu!lazer (`public/Textures/icons/`) a le bon sens, `Icon` l'utilise : le PNG blanc sert de
     **masque CSS** sur `currentColor`, donc couleur, taille et états (survol, désactivé, accent) viennent du texte
     autour, comme pour un SVG. Sinon l'icône SVG reste (ne force pas un mauvais sens).
-  - **Ajouter ou mapper une icône osu** : une ligne dans `OSU_ICONS` (`src/components/osuIcons.ts`), `nom: icon("fichier", ext)`
+  - **Ajouter ou mapper une icône osu** : une ligne dans `OSU_ICONS` (`src/components/icons/osuIcons.ts`), `nom: icon("fichier", ext)`
     (chemin sous `Textures/icons/` sans `.png`). Un nom déjà présent dans les chemins SVG est remplacé (supprime alors le
     SVG devenu mort) ; un nouveau nom devient un nouveau nom d'icône. `ext` est la part du carré que le dessin remplit
     sur son grand côté, en % (une croix seule ≈ 50, un cercle ≈ 90 : mesure-le) ; `Icon` met chaque dessin à la même
@@ -152,11 +157,11 @@ invité) et les sons de l'interface dans `public/Samples/UI/`. Ce sont des URL s
 
 ### Sons de l'interface
 
-`src/lib/sfx.ts` joue les sons avec l'API Web Audio : un seul `AudioContext`, des buffers décodés à la première
+`src/lib/audio/sfx.ts` joue les sons avec l'API Web Audio : un seul `AudioContext`, des buffers décodés à la première
 utilisation puis gardés, un nombre de voix limité, un volume maître. Rien ne sonne avant le premier clic ou la
 première touche (politique d'autoplay), et **jamais dans l'overlay en jeu**.
 
-`src/lib/uiSounds.ts` (installé une fois par `App`, via `useUiSounds()`) donne à chaque élément **le son que lui
+`src/lib/audio/uiSounds.ts` (installé une fois par `App`, via `useUiSounds()`) donne à chaque élément **le son que lui
 donne osu!lazer**, avec quelques écouteurs sur le document : un composant n'a rien à faire pour avoir le son standard.
 
 **Règles reprises de lazer** : un contrôle joue `<set>-hover` à l'arrivée du pointeur et `<set>-select` au clic (clic
@@ -209,6 +214,40 @@ playSfx("check-on");                                   // par son nom (`SFX_NAME
 
 Les réglages (activé, volume) sont dans **Réglages → Général**, gardés dans le `localStorage` de la fenêtre
 (`yar.sfx`) : c'est une préférence d'interface, pas un réglage du reader.
+
+## Tests de bout en bout
+
+Les tests **E2E** pilotent la vraie interface dans un vrai navigateur (Playwright), nourrie par les fausses données du mode navigateur
+et, quand l'API est le sujet, par le serveur d'exemple.
+
+```bash
+npm run e2e                # tout
+npm run e2e -- editor      # les fichiers dont le nom contient « editor »
+npm run e2e:ui             # l'interface de Playwright
+```
+
+- Ils pilotent **Microsoft Edge** (présent sur tout Windows) : aucun navigateur à télécharger. `E2E_CHANNEL=chrome` en choisit un autre (ou `chromium`, après `npx playwright install chromium`).
+- La commande démarre **ses propres serveurs** : Vite sur le port `1431` et le serveur d'exemple sur le port `24051`. **Ferme l'application d'abord** : elle occupe ce port.
+- Les fichiers sont dans `e2e/*.e2e.ts`. Ils couvrent : l'éditeur, les layouts et leur partage, les palettes, les widgets, les réglages (thèmes, langues), la documentation et le terrain de jeu, la page de l'overlay et le contrat de l'API, WebSocket des événements compris. La CI les lance dans le job *E2E (Windows)*.
+
+**Écrire un test** : un fichier `e2e/<sujet>.e2e.ts`, qui importe les aides de `e2e/helpers.ts` (`openEditor`, `addWidget`, `selectWidget`, `boxOf`, `widgetIds`, `canvasWidgets`).
+
+```ts
+import { expect, test } from "@playwright/test";
+import { addWidget, canvasWidgets, openEditor } from "./helpers";
+
+test("ajouter un widget le met sur l'écran", async ({ page }) => {
+  await openEditor(page);
+  const avant = await canvasWidgets(page).count();
+  await addWidget(page, "Clock");
+  await expect(canvasWidgets(page)).toHaveCount(avant + 1);
+});
+```
+
+- L'écran d'aperçu de l'éditeur porte `data-testid="editor-screen"`.
+- Les **boîtes de clic** des widgets sont les éléments `[data-widget]` (la valeur est l'identifiant du widget) ; les lignes du panneau des calques sont les éléments `[data-row]`.
+- La **scène** des widgets (ce qu'ils dessinent) est dessinée **sous** les boîtes de clic : pour vérifier ce qu'un widget affiche, cherche dans la scène (par son rôle ou son nom accessible), pas dans la boîte, et clique sur la boîte pour le sélectionner.
+- Les animations sont coupées (`reducedMotion: "reduce"`) : un test vérifie des états, pas des images.
 
 ## Créer un widget communautaire
 

@@ -98,8 +98,8 @@ fn main() -> Result<()> {
         Err(ReaderError::ProcessNotFound) => {
             println!("osu!lazer is not running; start it and re-run the probe.");
             // Still useful: show the installed build so version detection can be checked.
-            if let Some(dir) = std::env::var_os("LOCALAPPDATA") {
-                let exe = std::path::Path::new(&dir).join("osulazer/current/osu!.exe");
+            if let Some(dir) = lazer_reader::paths::lazer_install_dir() {
+                let exe = dir.join(lazer_reader::paths::game_exe_name());
                 if let Ok(v) = read_product_version(&exe) {
                     println!("installed: {v}  (profile key {})", v.profile_key());
                 }

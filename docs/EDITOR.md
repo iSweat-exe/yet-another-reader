@@ -75,6 +75,18 @@ Le **format d'écran** (16:9, 21:9, 16:10, 4:3, 32:9) permet de vérifier que le
 > et l'interrupteur « Ancrage automatique » avec son texte d'aide. Montrer l'état activé puis l'état désactivé (ancrage
 > fixé) côte à côte.
 
+## Alignement intelligent
+
+Pendant un glisser, le widget s'**accroche** de lui-même, et l'éditeur dessine ce qui l'a accroché :
+
+- **Bords et centres** : ceux de l'écran et des autres widgets, avec des lignes guides roses ;
+- **La grille**, quand elle est affichée ;
+- **L'espacement égal** : le widget prend l'**écart que deux autres widgets ont déjà entre eux**, ou se **centre entre ses deux voisins** pour que les deux écarts soient égaux. Des **repères de cotes roses** montrent la distance en pixels. Seuls comptent les widgets qui se **recouvrent sur l'autre axe** : un écart entre deux widgets de lignes différentes ne veut rien dire.
+
+`Alt` désactive tout le magnétisme pour le geste en cours.
+
+Les champs et les boutons de [Alignement](#alignement) et d'[Espacement](#espacement) (aligner, répartir, écarts) règlent la même chose à la main. Avec plusieurs widgets sélectionnés, **Même taille** (*Largeur*, *Hauteur* ou *Les deux*, dans **Propriétés → Espacement**) donne à tous la taille du **premier widget sélectionné** ; les widgets verrouillés ne changent pas.
+
 ## Alignement
 
 Les boutons **Aligner** (gauche, centre, droite, haut, milieu, bas) agissent sur la sélection : **un
@@ -130,7 +142,7 @@ qu'un widget est dissous automatiquement.
 
 | Section | Contenu |
 | --- | --- |
-| En-tête | **Nom** affiché dans l'éditeur, dupliquer, supprimer. |
+| En-tête | **Nom** affiché dans l'éditeur, dupliquer, supprimer. Pour un widget intégré, le bouton **Voir le code source** ouvre, en lecture seule, le fichier qui le définit (le texte est dans l'application, rien n'est téléchargé). |
 | **Placement** | Ancrage (3×3), `X`, `Y`, `W`, `H`, **Ancrage automatique**. |
 | **Pages** | Les pages où le widget est affiché (au moins une). |
 | **Style** | Couleur, **Taille du texte** (multiplicateur), **Opacité** (curseur de 0 à 100 %), **Alignement du texte** (auto = suit l'ancrage), **Animer les chiffres** et leur durée. |
@@ -140,6 +152,15 @@ qu'un widget est dissous automatiquement.
 > [!SCREENSHOT] properties-panel
 > Panneau **Propriétés** complet d'un widget Score, tout le panneau visible (en deux images si besoin) : en-tête avec le
 > nom, Placement, Pages (six interrupteurs), Style. Annoter chaque section avec son nom du tableau.
+
+## Copier et coller le style
+
+Pour donner à des widgets l'apparence d'un autre sans toucher à leur position ni à leur taille :
+
+1. sélectionne le widget modèle, puis **Copier le style** (en-tête des propriétés, menu contextuel du widget, `Ctrl + Alt + C` ou [palette de commandes](#palette-de-commandes)) ;
+2. sélectionne un ou plusieurs widgets, puis **Coller le style** (mêmes endroits, `Ctrl + Alt + V`).
+
+Le **style** copié est celui de la section *Style* et de la section *Typographie* : couleur, taille du texte, opacité, alignement, animation des chiffres et typographie. Les widgets **verrouillés** sont ignorés. Si plusieurs widgets sont sélectionnés au moment de copier, c'est le premier qui sert de modèle. Coller est **une seule étape** d'annulation.
 
 ## Calques
 
@@ -164,8 +185,18 @@ l'overlay affiche (le badge **Actif en jeu** indique l'actif).
 > Barre du haut avec la liste des layouts ouverte (default, Stream, Minimal, le layout actif coché) et, à droite, les
 > boutons Nouveau, Dupliquer, Renommer, Importer, Exporter, Supprimer, l'infobulle de l'un d'eux visible.
 
-**Importer / exporter** : **Exporter…** donne le JSON du layout (à copier ou télécharger) ; **Importer…**
-accepte du JSON collé ou un fichier. C'est le moyen de partager un layout.
+**Importer / exporter** : voir [Partager un layout](#partager-un-layout).
+
+## Partager un layout
+
+**Exporter…** donne deux choses :
+
+- un **fichier `.yarlayout`** (**Télécharger le fichier**) : du JSON qui contient le layout **et toutes les images et polices qu'il utilise**, encodées en base64. Un layout seul ne garde que les *identifiants* de ses images et polices, qui ne veulent rien dire sur un autre ordinateur : le fichier les emporte avec lui. Il pèse au plus **40 Mo**, pour **64 fichiers** au plus ;
+- un **code de partage** `yar1:…` (**Copier le code**) : le même contenu, compressé, en un texte court à coller dans un message. Il n'est proposé que s'il fait **120 000 caractères au plus** ; au-delà, partage le fichier.
+
+Un layout dont une image ou une police n'est plus dans l'application ne s'exporte pas : réimporte-la, ou retire le widget qui l'utilise.
+
+**Importer…** accepte un **fichier** (`.yarlayout` ou `.json`), un **code** `yar1:…`, le **texte d'un fichier** collé, ou un **JSON de layout simple** (ce que l'éditeur exportait avant). Les images et polices embarquées sont importées **sous le même identifiant** (un identifiant est le hash de son contenu), donc le layout fonctionne tout de suite. Un fichier invalide, ou un fichier embarqué qui n'est ni une image ni une police valide, est **refusé**.
 
 ## Versions enregistrées
 
@@ -189,7 +220,7 @@ l'overlay en jeu la reprend en direct. Sans lui, `Ctrl + S` enregistre. L'état 
 
 `Ctrl + K` (ou le bouton en forme de loupe) ouvre la palette de commandes : une seule recherche pour **ajouter un widget**,
 **ouvrir un layout**, changer de **thème** ou de **fond** de l'aperçu, aller à une **page**, ou lancer une action
-(enregistrer, annuler, grille, magnétisme). Les flèches parcourent la liste, `Entrée` lance, `Échap` ferme. Pendant que tu
+(enregistrer, annuler, grille, magnétisme, copier ou coller le style). Les flèches parcourent la liste, `Entrée` lance, `Échap` ferme. Pendant que tu
 parcours la liste, la partie droite montre le résultat : le vrai widget, la miniature du thème ou le fond.
 
 ## Données de l'aperçu
@@ -204,6 +235,7 @@ travailler sans jeu) ou **En direct** (l'état réel d'osu!lazer).
 | `Suppr` / `Retour arrière` | Supprimer la sélection |
 | `Ctrl + Z` / `Ctrl + Y` (ou `Ctrl + Maj + Z`) | Annuler / rétablir |
 | `Ctrl + C` / `Ctrl + V` / `Ctrl + D` | Copier / coller / dupliquer |
+| `Ctrl + Alt + C` / `Ctrl + Alt + V` | Copier / coller le style |
 | `Ctrl + G` / `Ctrl + Maj + G` | Grouper / dégrouper |
 | `Ctrl + A` | Tout sélectionner |
 | Flèches (`Maj` : ×10) | Déplacer la sélection |

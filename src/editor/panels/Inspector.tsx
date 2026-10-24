@@ -1,4 +1,5 @@
-import { Icon } from "../../components/icons/Icon";
+import { useState } from "react";
+import { Icon, type IconName } from "../../components/icons/Icon";
 import { type MessageKey, useT } from "../../i18n";
 import { useReaderStore } from "../../lib/state/store";
 import type { WidgetOption } from "../../lib/state/types";
@@ -9,6 +10,7 @@ import { WIDGETS } from "../../widgets/registry";
 import { optionValues } from "../../widgets/web";
 import { imageIdOf } from "../../lib/media/images";
 import { ImageField } from "./ImageField";
+import { SourceDialog } from "./SourceDialog";
 import { Typography } from "./Typography";
 import { ColorInput, IconButton, NumberInput, Row, Section, SelectInput, Toggle, controlClass } from "../fields";
 import { averageGap, unitsOf } from "../canvas/geometry";
@@ -34,6 +36,22 @@ function AnchorPicker({ value, onChange }: { value: Anchor; onChange: (anchor: A
         </button>
       ))}
     </div>
+  );
+}
+
+/** A labelled action in the inspector header: the words say what it does, the icon only helps scanning. */
+function HeaderAction({ icon, label, onClick, disabled }: { icon: IconName; label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex min-h-8 min-w-0 items-center gap-1.5 rounded-md px-2 text-xs text-ink-dim shadow-[0_0_0_1px_var(--ring-field)] outline-none transition-[background-color,color,scale] duration-150 hover:bg-wash/8 hover:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] disabled:pointer-events-none disabled:opacity-35"
+    >
+      <Icon name={icon} size={14} className="shrink-0" />
+      <span className="truncate">{label}</span>
+    </button>
   );
 }
 
@@ -93,6 +111,7 @@ function SingleInspector({ widget }: { widget: WidgetInstance }) {
   const { updateWidget, commit, removeSelected, duplicateSelected, copyStyle, pasteStyle } = useEditor.getState();
   const hasStyle = useEditor((s) => s.styleClipboard !== null);
   const viewWidth = viewWidthOf(doc, aspect);
+  const [sourceOpen, setSourceOpen] = useState(false);
 
   const patch = (changes: Partial<WidgetInstance>) => updateWidget(widget.id, changes);
   // 0 is the default, so it is left out of the layout; any other angle is wrapped to (-180, 180].
@@ -105,17 +124,25 @@ function SingleInspector({ widget }: { widget: WidgetInstance }) {
 
   return (
     <>
-      <header className="flex items-center gap-2.5 border-b border-wash/5 px-3 py-3">
-        <Icon name={widgetIcon(widget.type)} size={18} className="text-accent" />
-        <div className="min-w-0 flex-1">
-          <input aria-label={t("editor.name")} value={widget.name ?? ""} placeholder={typeLabel} onChange={(e) => patch({ name: e.target.value || undefined })} className="w-full truncate rounded bg-transparent px-1 py-0.5 text-sm font-medium text-ink outline-none transition-shadow duration-150 placeholder:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)]" />
-          <p className="truncate px-1 text-[0.6875rem] text-ink-dim">{typeLabel}</p>
+      <header className="space-y-3 border-b border-wash/5 px-3 py-3">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
+            <Icon name={widgetIcon(widget.type)} size={18} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <input aria-label={t("editor.name")} value={widget.name ?? ""} placeholder={typeLabel} onChange={(e) => patch({ name: e.target.value || undefined })} className="w-full truncate rounded bg-transparent px-1 py-0.5 text-sm font-medium text-ink outline-none transition-shadow duration-150 placeholder:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)]" />
+            <p className="truncate px-1 text-[0.6875rem] text-ink-dim">{typeLabel}</p>
+          </div>
+          <IconButton icon="trash" tone="danger" label={t("editor.deleteWidget")} onClick={removeSelected} />
         </div>
-        <IconButton icon="text" label={t("editor.copyStyle")} onClick={copyStyle} />
-        <IconButton icon="check" label={t("editor.pasteStyle")} disabled={!hasStyle} onClick={pasteStyle} />
-        <IconButton icon="copy" label={t("editor.duplicateWidget")} onClick={duplicateSelected} />
-        <IconButton icon="trash" tone="danger" label={t("editor.deleteWidget")} onClick={removeSelected} />
+        <div className="grid grid-cols-2 gap-1.5">
+          <HeaderAction icon="text" label={t("editor.copyStyle")} onClick={copyStyle} />
+          <HeaderAction icon="download" label={t("editor.pasteStyle")} disabled={!hasStyle} onClick={pasteStyle} />
+          <HeaderAction icon="copy" label={t("editor.duplicateWidget")} onClick={duplicateSelected} />
+          {builtin && <HeaderAction icon="code" label={t("editor.viewSource")} onClick={() => setSourceOpen(true)} />}
+        </div>
       </header>
+      {sourceOpen && builtin && <SourceDialog type={widget.type} name={typeLabel} onClose={() => setSourceOpen(false)} />}
 
       <Section title={t("editor.placement")}>
         <div className="flex items-start gap-3">

@@ -22,6 +22,9 @@ use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::core::{GUID, HRESULT, Interface, PCWSTR, implement, interface};
 
 use crate::error::{ReaderError, Result};
+pub use crate::platform::types::{
+    FieldDescData, MethodTableData, MethodTableFieldData, ModuleInfo,
+};
 use crate::process::Process;
 
 const IMAGE_FILE_MACHINE_AMD64: u32 = 0x8664;
@@ -165,77 +168,6 @@ impl ICLRDataTarget_Impl for DataTarget_Impl {
     unsafe fn Request(&self, _: u32, _: u32, _: *const u8, _: u32, _: *mut u8) -> HRESULT {
         E_NOTIMPL
     }
-}
-
-/// `DacpMethodTableData`.
-#[repr(C)]
-#[derive(Default, Debug, Clone, Copy)]
-pub struct MethodTableData {
-    pub is_free: i32,
-    pub module: u64,
-    pub class: u64,
-    pub parent: u64,
-    pub num_interfaces: u16,
-    pub num_methods: u16,
-    pub num_vtable_slots: u16,
-    pub num_virtuals: u16,
-    pub base_size: u32,
-    pub component_size: u32,
-    pub token: u32,
-    pub attr_class: u32,
-    pub is_shared: i32,
-    pub is_dynamic: i32,
-    pub contains_pointers: i32,
-}
-
-/// `DacpMethodTableFieldData`.
-#[repr(C)]
-#[derive(Default, Debug, Clone, Copy)]
-pub struct MethodTableFieldData {
-    pub num_instance_fields: u16,
-    pub num_static_fields: u16,
-    pub num_thread_static_fields: u16,
-    pub first_field: u64,
-    pub context_static_offset: u16,
-    pub context_statics_size: u16,
-}
-
-/// `DacpFieldDescData`.
-#[repr(C)]
-#[derive(Default, Debug, Clone, Copy)]
-pub struct FieldDescData {
-    pub elem_type: u32,
-    pub sig_type: u32,
-    pub mt_of_type: u64,
-    pub module_of_type: u64,
-    pub token_of_type: u32,
-    /// `mdFieldDef` token of the field.
-    pub token: u32,
-    pub mt_of_enclosing_class: u64,
-    pub offset: u32,
-    pub is_thread_local: i32,
-    pub is_context_local: i32,
-    pub is_static: i32,
-    pub next_field: u64,
-}
-
-const _: () = {
-    assert!(size_of::<MethodTableData>() == 0x48);
-    assert!(size_of::<MethodTableFieldData>() == 0x18);
-    assert!(size_of::<FieldDescData>() == 0x40);
-};
-
-/// Metadata blob location of a module (from `DacpModuleData`).
-#[derive(Debug, Clone, Copy)]
-pub struct ModuleInfo {
-    pub address: u64,
-    pub il_base: u64,
-    pub metadata_start: u64,
-    pub metadata_size: u64,
-    /// Address of the module's `TypeDef -> MethodTable` lookup map.
-    pub type_def_map: u64,
-    /// The complete `DacpModuleData` (0xa0 bytes) for diagnostics.
-    pub raw: [u64; 0xa0 / 8],
 }
 
 /// Handle on the runtime's `ISOSDacInterface`.

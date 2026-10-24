@@ -15,6 +15,7 @@ use lazer_reader::window::{self, GameWindow};
 use overlay_server::Hub;
 
 use crate::layout;
+use crate::platform::keep_on_top;
 use tauri::{
     AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder,
@@ -154,40 +155,4 @@ fn page_of(state: &GameState) -> Option<u8> {
         _ => return None,
     };
     layout::page_bit(name)
-}
-
-/// Re-asserts the topmost, non-activating state (see the call sites for when this is done).
-#[cfg(windows)]
-fn keep_on_top(window: &WebviewWindow) {
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::UI::WindowsAndMessaging::{
-        GWL_EXSTYLE, GetWindowLongPtrW, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-        SetWindowLongPtrW, SetWindowPos, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
-    };
-
-    let Ok(raw) = window.hwnd() else { return };
-    let hwnd = HWND(raw.0);
-    // SAFETY: `hwnd` belongs to a live window owned by this process; the calls only adjust its
-    // extended style and z-order.
-    unsafe {
-        let wanted = (WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW).0 as isize;
-        let style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-        if style & wanted != wanted {
-            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, style | wanted);
-        }
-        let _ = SetWindowPos(
-            hwnd,
-            Some(HWND_TOPMOST),
-            0,
-            0,
-            0,
-            0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
-        );
-    }
-}
-
-#[cfg(not(windows))]
-fn keep_on_top(window: &WebviewWindow) {
-    let _ = window.set_always_on_top(true);
 }

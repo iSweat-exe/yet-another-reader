@@ -4,11 +4,15 @@ mod context;
 mod diag;
 mod images;
 mod layout;
+mod nowplaying;
 mod overlay;
+mod platform;
 mod reader;
+mod records;
 mod rtss;
 mod settings;
 mod updater;
+mod widgetwatch;
 
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex, PoisonError};
@@ -54,34 +58,6 @@ fn install_example_widget(widgets_dir: &std::path::Path) {
             example.join("index.html"),
             include_str!("../../docs/examples/hello-score/index.html"),
         );
-    }
-}
-
-/// Switches off the shortcuts of the browser engine (find, print, reload, zoom, back/forward, view source...) in
-/// the main window: it is an application, and they only get in the way. Release builds only, so that
-/// `tauri dev` keeps its developer tools (the page already cancels the common ones, see `src/lib/browserKeys.ts`).
-#[cfg(all(windows, not(debug_assertions)))]
-fn disable_browser_shortcuts(window: &tauri::WebviewWindow) {
-    use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings3;
-    use windows_core::Interface;
-
-    let result = window.with_webview(|webview| {
-        // SAFETY: the controller belongs to this window and is only used on the UI thread `with_webview` runs on.
-        let settings = unsafe {
-            webview
-                .controller()
-                .CoreWebView2()
-                .and_then(|core| core.Settings())
-        };
-        if let Ok(settings) = settings
-            && let Ok(settings) = settings.cast::<ICoreWebView2Settings3>()
-        {
-            // SAFETY: plain setter on a live COM object.
-            let _ = unsafe { settings.SetAreBrowserAcceleratorKeysEnabled(false) };
-        }
-    });
-    if let Err(error) = result {
-        eprintln!("could not disable the browser shortcuts: {error}");
     }
 }
 
@@ -134,6 +110,7 @@ pub fn run() {
                 overlay_fps: Arc::new(AtomicU32::new(settings.overlay_fps)),
                 overlay: Arc::new(OverlayControl::default()),
                 rtss: Arc::new(RtssControl::default()),
+                now_playing: Arc::default(),
                 api: api::ApiSupervisor::default(),
                 diag: diag::Diag::default(),
                 updater: updater::Updater::default(),
@@ -148,6 +125,7 @@ pub fn run() {
                 input_ms: Arc::clone(&ctx.input_ms),
                 overlay_fps: Arc::clone(&ctx.overlay_fps),
                 diag: ctx.diag.clone(),
+                records_dir: ctx.config_dir.join("records"),
             })?;
 
             rtss::spawn(
@@ -157,9 +135,12 @@ pub fn run() {
                 Arc::clone(&ctx.poll_ms),
             )?;
 
+            nowplaying::spawn(ctx.hub.clone(), Arc::clone(&ctx.now_playing))?;
+            widgetwatch::spawn(app.handle().clone(), ctx.widgets_dir.clone())?;
+
             #[cfg(all(windows, not(debug_assertions)))]
             if let Some(main) = app.get_webview_window("main") {
-                disable_browser_shortcuts(&main);
+                platform::disable_browser_shortcuts(&main);
             }
 
             updater::spawn(app.handle().clone());
@@ -207,6 +188,7 @@ pub fn run() {
             commands::get_layout_version,
             commands::list_widgets,
             commands::open_widgets_folder,
+            commands::create_widget,
             commands::get_widgets_dir,
             images::import_image,
             images::list_images,

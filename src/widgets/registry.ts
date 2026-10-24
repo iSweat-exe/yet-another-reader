@@ -13,7 +13,31 @@ import { PP_WIDGETS } from "./builtin/ppGraph";
 import { SOCIAL_WIDGETS } from "./builtin/social";
 import type { WidgetDefinition } from "./types";
 
-export const WIDGETS: readonly WidgetDefinition[] = [...BASIC_WIDGETS, ...BAR_WIDGETS, ...INFO_WIDGETS, ...PLAYER_WIDGETS, ...SOCIAL_WIDGETS, ...INPUT_WIDGETS, ...MAP_WIDGETS, ...LIVE_WIDGETS, ...MISC_WIDGETS, ...IMAGE_WIDGETS, ...DIFFICULTY_GRAPH_WIDGETS, ...HISTORY_WIDGETS, ...PP_WIDGETS];
+/** Each group of built-in widgets with the file of `builtin/` that defines it (the editor can show that source). */
+const GROUPS: readonly (readonly [file: string, widgets: readonly WidgetDefinition[]])[] = [
+  ["basic", BASIC_WIDGETS],
+  ["bars", BAR_WIDGETS],
+  ["info", INFO_WIDGETS],
+  ["player", PLAYER_WIDGETS],
+  ["social", SOCIAL_WIDGETS],
+  ["input", INPUT_WIDGETS],
+  ["map", MAP_WIDGETS],
+  ["live", LIVE_WIDGETS],
+  ["misc", MISC_WIDGETS],
+  ["image", IMAGE_WIDGETS],
+  ["difficultyGraph", DIFFICULTY_GRAPH_WIDGETS],
+  ["history", HISTORY_WIDGETS],
+  ["ppGraph", PP_WIDGETS],
+];
+
+export const WIDGETS: readonly WidgetDefinition[] = GROUPS.flatMap(([, widgets]) => widgets);
+
+const FILE_OF = new Map(GROUPS.flatMap(([file, widgets]) => widgets.map((w) => [w.type, `builtin/${file}.tsx`] as const)));
+
+/** The file, relative to `src/widgets/`, that defines a built-in widget (`undefined` for an unknown type). */
+export function widgetSourceFile(type: string): string | undefined {
+  return FILE_OF.get(type);
+}
 
 const BY_TYPE = new Map(WIDGETS.map((w) => [w.type, w]));
 

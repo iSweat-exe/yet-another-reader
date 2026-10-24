@@ -8,7 +8,8 @@ use axum::extract::{Request, State};
 use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use lazer_reader::model::{
-    Beatmap, Difficulty, DifficultyGraph, GameState, Gameplay, Pp, ReaderStatus, Screen, Time, User,
+    Beatmap, Difficulty, DifficultyGraph, GameState, Gameplay, PersonalBestGhost, Pp, ReaderStatus,
+    Screen, Time, User,
 };
 use lazer_reader::pp::store_path;
 use serde::Serialize;
@@ -171,6 +172,7 @@ pub struct Index {
     app_version: &'static str,
     websocket: &'static str,
     inputs_websocket: &'static str,
+    events_websocket: &'static str,
     documentation: &'static str,
     endpoints: &'static [Endpoint],
 }
@@ -239,6 +241,10 @@ const ENDPOINTS: &[Endpoint] = &[
         description: "Live / FC / SS performance points (null outside a play).",
     },
     Endpoint {
+        path: "/api/v1/personal-best",
+        description: "Best completed solo play of the current beatmap seen by the app, with per-second samples (null before the first).",
+    },
+    Endpoint {
         path: "/api/v1/hit-errors",
         description: "Unstable rate and recent hit timing errors.",
     },
@@ -271,6 +277,10 @@ const ENDPOINTS: &[Endpoint] = &[
         description: "WebSocket stream of state, status and events.",
     },
     Endpoint {
+        path: "/api/v1/events/ws",
+        description: "WebSocket stream of events only (a note hit, a miss, a play started...), filterable with ?names=.",
+    },
+    Endpoint {
         path: "/api/v1/docs",
         description: "This documentation (Markdown).",
     },
@@ -283,6 +293,7 @@ pub async fn index() -> Json<Index> {
         app_version: env!("CARGO_PKG_VERSION"),
         websocket: "/api/v1/ws",
         inputs_websocket: "/api/v1/inputs/ws",
+        events_websocket: "/api/v1/events/ws",
         documentation: "/api/v1/docs",
         endpoints: ENDPOINTS,
     })
@@ -374,6 +385,11 @@ pub async fn user(State(s): State<AppState>) -> Json<Option<User>> {
 
 pub async fn gameplay(State(s): State<AppState>) -> Json<Option<Gameplay>> {
     Json(s.hub.game().gameplay)
+}
+
+/// The best completed solo play of the current beatmap the app has seen, with its per-second samples.
+pub async fn personal_best(State(s): State<AppState>) -> Json<Option<PersonalBestGhost>> {
+    Json(s.hub.ghost().map(|g| (*g).clone()))
 }
 
 pub async fn pp(State(s): State<AppState>) -> Json<Option<Pp>> {
