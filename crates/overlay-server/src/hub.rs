@@ -281,19 +281,19 @@ impl Hub {
 
     /// Publishes the held inputs; returns `false` (and sends nothing) when they did not change.
     #[must_use = "false means nothing changed, so there is nothing to forward"]
-    pub fn publish_inputs(&self, state: InputState) -> bool {
+    pub fn publish_inputs(&self, state: &InputState) -> bool {
         let update = {
             let mut d = write(&self.0.input);
-            if d.state == state {
+            if d.state == *state {
                 return false;
             }
             d.seq += 1;
             d.at = now_ms();
-            d.state = state.clone();
+            d.state.clone_from(state);
             InputUpdate {
                 seq: d.seq,
                 at: d.at,
-                state: Arc::new(state),
+                state: Arc::new(state.clone()),
             }
         };
         let _ = self.0.input_tx.send(update);
@@ -474,9 +474,9 @@ mod tests {
         let hub = hub();
         let mut rx = hub.subscribe_inputs();
         let held = InputState::from_codes(vec![108], vec![]);
-        assert!(hub.publish_inputs(held.clone()));
-        assert!(!hub.publish_inputs(held));
-        assert!(hub.publish_inputs(InputState::default()));
+        assert!(hub.publish_inputs(&held));
+        assert!(!hub.publish_inputs(&held));
+        assert!(hub.publish_inputs(&InputState::default()));
         assert_eq!(rx.try_recv().map(|u| u.seq), Ok(1));
         assert_eq!(rx.try_recv().map(|u| u.seq), Ok(2));
         assert!(rx.try_recv().is_err());

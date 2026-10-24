@@ -68,6 +68,12 @@ fn inputs(interval_ms: u64) -> Result<()> {
 }
 
 fn main() -> Result<()> {
+    if std::env::args().nth(1).as_deref() == Some("inputs-debug") {
+        let mut session = lazer_reader::session::LazerSession::connect()?;
+        session.snapshot()?;
+        println!("{}", session.debug_inputs());
+        return Ok(());
+    }
     if std::env::args().nth(1).as_deref() == Some("inputs") {
         let ms = std::env::args()
             .nth(2)

@@ -1,32 +1,55 @@
 import { create } from "zustand";
-import { deleteLayout as deleteStored, listLayouts, loadLayout, saveLayout } from "../lib/layoutApi";
-import { saveSettings, useReaderStore } from "../lib/store";
 import {
   type Layout,
-  type PresetId,
   type WidgetInstance,
   expandGroups,
-  migrateLayout,
   newGroupId,
+  normalizeRotation,
   presetLayout,
   resolveRect,
   uniqueId,
-  withAutoAnchor,
   withPosition,
   withoutLoneGroups,
 } from "../overlay/layout";
 import type { Page } from "../overlay/pages";
+import { createLibrary, type LibraryState } from "./layoutLibrary";
+import { moveUnit as moveUnitIn, type Placement } from "./layerOrder";
+import { type BackgroundId, DEFAULT_BACKGROUND, isBackgroundId } from "./backgrounds";
+import { type Aspect, regroup, viewWidthOf, withAutoAnchors } from "./layoutOps";
 import { type AlignMode, type Axis, type Unit, alignedPosition, boundingBox, distributionShifts, spacingShifts, unitsOf } from "./geometry";
 
-export type Aspect = "16:9" | "21:9" | "16:10" | "4:3" | "32:9";
-
-export const ASPECTS: Record<Aspect, number> = { "16:9": 16 / 9, "21:9": 21 / 9, "16:10": 16 / 10, "4:3": 4 / 3, "32:9": 32 / 9 };
+// Kept importable from here: the rest of the editor reads these through the store module.
+export { ASPECTS, type Aspect, isValidLayoutName, viewWidthOf } from "./layoutOps";
+export { isDirty } from "./layoutLibrary";
 
 const HISTORY_LIMIT = 100;
-const NAME_PATTERN = /^[\p{L}\p{N} _-]{1,40}$/u;
 
-export const isValidLayoutName = (name: string) => NAME_PATTERN.test(name) && name === name.trim();
+const BACKGROUND_KEY = "yar.editor.background";
 
+function storedBackground(): BackgroundId {
+  try {
+    const saved = localStorage.getItem(BACKGROUND_KEY);
+    return isBackgroundId(saved) ? saved : DEFAULT_BACKGROUND;
+  } catch {
+    return DEFAULT_BACKGROUND;
+  }
+}
+
+const GRID_KEY = "yar.editor.gridSize";
+export const GRID_SIZE = { min: 2, max: 200, default: 10 } as const;
+
+/** A grid size brought into its range, in whole pixels. */
+export const clampGridSize = (size: number) => (Number.isFinite(size) ? Math.min(GRID_SIZE.max, Math.max(GRID_SIZE.min, Math.round(size))) : GRID_SIZE.default);
+
+/** The grid size the user chose last time (the app default when none, or when storage is unavailable). */
+function storedGridSize(): number {
+  try {
+    const saved = localStorage.getItem(GRID_KEY);
+    return saved === null ? GRID_SIZE.default : clampGridSize(Number(saved));
+  } catch {
+    return GRID_SIZE.default;
+  }
+}
 /** What to add from the palette. */
 export interface NewWidget {
   type: string;
@@ -36,12 +59,8 @@ export interface NewWidget {
   options?: Record<string, unknown>;
 }
 
-interface EditorState {
-  ready: boolean;
-  layouts: string[];
-  name: string;
+interface EditorState extends LibraryState {
   doc: Layout;
-  savedJson: string;
   selection: string[];
   past: Layout[];
   future: Layout[];
@@ -51,26 +70,31 @@ interface EditorState {
   autosave: boolean;
   snap: boolean;
   showGrid: boolean;
+  /** Distance between two grid lines, in layout pixels (what a move snaps to while the grid is shown). */
+  gridSize: number;
+  /** The command palette (Ctrl+K) is open. */
+  commandOpen: boolean;
+  /** What is drawn behind the overlay in the preview (remembered between sessions). */
+  background: BackgroundId;
   aspect: Aspect;
   dataSource: "mock" | "live";
   /** The page being edited: the canvas and the layers show the widgets of this page. */
   page: Page;
-  saving: boolean;
-  error: string | null;
-
-  init: (active: string) => Promise<void>;
-  setError: (message: string | null) => void;
-
   /** Selects widgets; a group is always taken whole unless `exact` (picking one member in the layers). */
   select: (ids: string[], additive?: boolean, exact?: boolean) => void;
   commit: (next: Layout, key?: string) => void;
   beginGesture: () => void;
   liveUpdate: (next: Layout) => void;
   endGesture: () => void;
+  /** Abandons the gesture in progress (Escape): the layout goes back to how it was, with no undo entry. */
+  cancelGesture: () => void;
   undo: () => void;
   redo: () => void;
 
-  addWidget: (spec: NewWidget) => void;
+  /** Adds a widget; `at` (layout pixels) is where its centre lands, otherwise the middle of the screen. */
+  addWidget: (spec: NewWidget, at?: { x: number; y: number }) => void;
+  /** Moves a unit of the layers list (a widget or a whole group) next to another one, in front of it or behind it. */
+  moveUnit: (ids: readonly string[], target: readonly string[], placement: Placement) => void;
   updateWidget: (id: string, patch: Partial<WidgetInstance>) => void;
   removeSelected: () => void;
   duplicateSelected: () => void;
@@ -87,58 +111,22 @@ interface EditorState {
   ungroupSelected: () => void;
   reorderGroup: (group: string, to: "forward" | "backward") => void;
   setLocked: (ids: string[], locked: boolean) => void;
+  /** Sets the rotation (degrees) of the widgets `ids`, each around its own centre; 0 removes it. One undo step. */
+  setRotation: (ids: string[], rotation: number) => void;
 
   setToggle: (key: "autosave" | "snap" | "showGrid", value: boolean) => void;
+  setGridSize: (size: number) => void;
+  setCommandOpen: (open: boolean) => void;
+  setBackground: (background: BackgroundId) => void;
   setAspect: (aspect: Aspect) => void;
   setDataSource: (source: "mock" | "live") => void;
   setPage: (page: Page) => void;
-
-  save: () => Promise<void>;
-  openLayout: (name: string) => Promise<void>;
-  createLayout: (name: string, preset: PresetId) => Promise<string | null>;
-  duplicateLayout: (name: string) => Promise<string | null>;
-  renameLayout: (name: string) => Promise<string | null>;
-  removeLayout: (name: string) => Promise<void>;
-  importLayout: (text: string, name: string) => Promise<string | null>;
-  exportLayout: () => string;
-  useAsActive: () => Promise<void>;
 }
 
-/** Gives the copies in `fresh` groups of their own, so duplicating a group does not merge it with the original. */
-const regroup = (widgets: WidgetInstance[], fresh: ReadonlySet<string>): WidgetInstance[] => {
-  const renamed = new Map<string, string>();
-  const taken = [...widgets];
-  return withoutLoneGroups(
-    widgets.map((w) => {
-      if (!fresh.has(w.id) || !w.group) return w;
-      let group = renamed.get(w.group);
-      if (!group) {
-        group = newGroupId(taken);
-        renamed.set(w.group, group);
-        taken.push({ ...w, group });
-      }
-      return { ...w, group };
-    }),
-  );
-};
+/** Structural equality by value, for the few places that need it (a no-op edit, the widgets a gesture touched). */
+const layoutKey = (layout: Layout) => JSON.stringify(layout);
+const widgetKey = (widget: WidgetInstance) => JSON.stringify(widget);
 
-const json = (layout: Layout) => JSON.stringify(layout);
-const json2 = (widget: WidgetInstance) => JSON.stringify(widget);
-
-/** Width of the previewed screen, in layout pixels. */
-export const viewWidthOf = (doc: Layout, aspect: Aspect) => Math.round(doc.referenceHeight * ASPECTS[aspect]);
-
-/**
- * Re-anchors the widgets `ids` to where they sit now, so the layout keeps its meaning on other
- * screen shapes without the user having to think about anchors. Widgets whose anchor was set by
- * hand are left alone.
- */
-const withAutoAnchors = (doc: Layout, ids: ReadonlySet<string>, aspect: Aspect): Layout => {
-  const viewWidth = viewWidthOf(doc, aspect);
-  return { ...doc, widgets: doc.widgets.map((w) => (ids.has(w.id) ? withAutoAnchor(w, viewWidth, doc.referenceHeight) : w)) };
-};
-
-export const isDirty = (s: Pick<EditorState, "doc" | "savedJson">) => json(s.doc) !== s.savedJson;
 
 /** Edits of the same field closer together than this form a single undo step. */
 const COALESCE_MS = 800;
@@ -150,7 +138,7 @@ export const useEditor = create<EditorState>((set, get) => {
   /** Replaces the document, recording the previous one in the undo history. */
   const commit = (next: Layout, key?: string) => {
     const { doc, past } = get();
-    if (json(next) === json(doc)) return;
+    if (layoutKey(next) === layoutKey(doc)) return;
     const now = Date.now();
     const merge = key !== undefined && key === lastKey && now - lastAt < COALESCE_MS && past.length > 0;
     lastKey = key ?? null;
@@ -192,43 +180,8 @@ export const useEditor = create<EditorState>((set, get) => {
     commit(withAutoAnchors(moved, new Set(byId.keys()), aspect), key);
   };
 
-  /** Loads a layout into the editor (the caller has already dealt with unsaved changes). */
-  const open = async (name: string) => {
-    const doc = await loadLayout(name);
-    const layouts = await listLayouts(useReaderStore.getState().settings?.activeLayout ?? "default");
-    set({
-      name,
-      doc: { ...doc, name },
-      savedJson: json({ ...doc, name }),
-      layouts: layouts.includes(name) ? layouts : [...layouts, name].sort((a, b) => a.localeCompare(b)),
-      selection: [],
-      past: [],
-      future: [],
-      gestureStart: null,
-    });
-  };
-
-  const persist = async (name: string, doc: Layout) => {
-    await saveLayout(name, { ...doc, name });
-  };
-
-  const guard = async (action: () => Promise<void>): Promise<string | null> => {
-    try {
-      await action();
-      return null;
-    } catch (e) {
-      const message = String(e);
-      set({ error: message });
-      return message;
-    }
-  };
-
   return {
-    ready: false,
-    layouts: [],
-    name: "default",
     doc: presetLayout("classic", "default"),
-    savedJson: "",
     selection: [],
     past: [],
     future: [],
@@ -237,18 +190,12 @@ export const useEditor = create<EditorState>((set, get) => {
     autosave: true,
     snap: true,
     showGrid: false,
+    gridSize: storedGridSize(),
+    commandOpen: false,
+    background: storedBackground(),
     aspect: "16:9",
     dataSource: "mock",
     page: "playing",
-    saving: false,
-    error: null,
-
-    init: async (active) => {
-      if (get().ready) return;
-      await open(active);
-      set({ ready: true });
-    },
-    setError: (error) => set({ error }),
 
     select: (ids, additive = false, exact = false) => {
       const { selection: current, doc, page } = get();
@@ -263,13 +210,17 @@ export const useEditor = create<EditorState>((set, get) => {
     liveUpdate: (next) => set({ doc: next }),
     endGesture: () => {
       const { gestureStart, doc, past, aspect } = get();
-      if (gestureStart && json(gestureStart) !== json(doc)) {
+      if (gestureStart && layoutKey(gestureStart) !== layoutKey(doc)) {
         // Only the widgets the gesture touched are re-anchored.
-        const before = new Map(gestureStart.widgets.map((w) => [w.id, json2(w)]));
-        const moved = new Set(doc.widgets.filter((w) => before.get(w.id) !== json2(w)).map((w) => w.id));
+        const before = new Map(gestureStart.widgets.map((w) => [w.id, widgetKey(w)]));
+        const moved = new Set(doc.widgets.filter((w) => before.get(w.id) !== widgetKey(w)).map((w) => w.id));
         set({ doc: withAutoAnchors(doc, moved, aspect), past: [...past.slice(-(HISTORY_LIMIT - 1)), gestureStart], future: [] });
       }
       set({ gestureStart: null });
+    },
+    cancelGesture: () => {
+      const { gestureStart } = get();
+      set(gestureStart ? { doc: gestureStart, gestureStart: null } : { gestureStart: null });
     },
     undo: () => {
       const { past, future, doc, selection } = get();
@@ -286,7 +237,7 @@ export const useEditor = create<EditorState>((set, get) => {
       set({ doc: next, past: [...past, doc], future: rest, selection: selection.filter((id) => ids.has(id)) });
     },
 
-    addWidget: (spec) => {
+    addWidget: (spec, at) => {
       const { doc } = get();
       const id = uniqueId(doc, spec.widget ?? spec.type);
       const widget: WidgetInstance = {
@@ -303,9 +254,13 @@ export const useEditor = create<EditorState>((set, get) => {
       if (spec.widget) widget.widget = spec.widget;
       if (spec.name) widget.name = spec.name;
       if (spec.options) widget.options = spec.options;
-      commit(withAutoAnchors({ ...doc, widgets: [...doc.widgets, widget] }, new Set([id]), get().aspect));
+      const { aspect } = get();
+      const viewWidth = viewWidthOf(doc, aspect);
+      const placed = at ? withPosition(widget, at.x - widget.w / 2, at.y - widget.h / 2, viewWidth, doc.referenceHeight) : widget;
+      commit(withAutoAnchors({ ...doc, widgets: [...doc.widgets, placed] }, new Set([id]), aspect));
       set({ selection: [id] });
     },
+    moveUnit: (ids, target, placement) => patchWidgets((ws) => moveUnitIn(ws, ids, target, placement)),
     updateWidget: (id, patch) => patchWidgets((ws) => ws.map((w) => (w.id === id ? { ...w, ...patch } : w)), `${id}:${Object.keys(patch).join(",")}`),
     removeSelected: () => {
       const { selection } = get();
@@ -451,7 +406,36 @@ export const useEditor = create<EditorState>((set, get) => {
       }),
     setLocked: (ids, locked) => patchWidgets((ws) => ws.map((w) => (ids.includes(w.id) ? { ...w, locked: locked || undefined } : w))),
 
+    setRotation: (ids, rotation) => {
+      const next = normalizeRotation(rotation);
+      patchWidgets((ws) =>
+        ws.map((w) => {
+          if (!ids.includes(w.id) || w.locked) return w;
+          const { rotation: _old, ...rest } = w;
+          return next === 0 ? rest : { ...rest, rotation: next };
+        }),
+      );
+    },
+
     setToggle: (key, value) => set({ [key]: value }),
+    setBackground: (background) => {
+      set({ background });
+      try {
+        localStorage.setItem(BACKGROUND_KEY, background);
+      } catch {
+        /* not remembered */
+      }
+    },
+    setCommandOpen: (commandOpen) => set({ commandOpen }),
+    setGridSize: (size) => {
+      const gridSize = clampGridSize(size);
+      set({ gridSize });
+      try {
+        localStorage.setItem(GRID_KEY, String(gridSize));
+      } catch {
+        /* not remembered */
+      }
+    },
     setAspect: (aspect) => set({ aspect }),
     setDataSource: (dataSource) => set({ dataSource }),
     setPage: (page) => {
@@ -461,79 +445,6 @@ export const useEditor = create<EditorState>((set, get) => {
       set({ page, selection: selection.filter((id) => onPage.has(id)) });
     },
 
-    save: async () => {
-      const { name, doc, saving } = get();
-      if (saving || !isDirty(get())) return;
-      set({ saving: true });
-      try {
-        await persist(name, doc);
-        set({ savedJson: json({ ...doc, name }) });
-      } catch (e) {
-        set({ error: String(e) });
-      } finally {
-        set({ saving: false });
-      }
-    },
-    openLayout: async (name) => {
-      await get().save();
-      await guard(() => open(name));
-    },
-    createLayout: (name, preset) =>
-      guard(async () => {
-        if (!isValidLayoutName(name)) throw new Error("invalidName");
-        if (get().layouts.includes(name)) throw new Error("nameTaken");
-        await get().save();
-        await persist(name, presetLayout(preset, name));
-        await open(name);
-      }),
-    duplicateLayout: (name) =>
-      guard(async () => {
-        if (!isValidLayoutName(name)) throw new Error("invalidName");
-        if (get().layouts.includes(name)) throw new Error("nameTaken");
-        const { doc } = get();
-        await persist(name, { ...doc, name });
-        await open(name);
-      }),
-    renameLayout: (name) =>
-      guard(async () => {
-        const { name: old, doc, layouts } = get();
-        if (!isValidLayoutName(name)) throw new Error("invalidName");
-        if (name !== old && layouts.includes(name)) throw new Error("nameTaken");
-        if (name === old) return;
-        await persist(name, { ...doc, name });
-        const settings = useReaderStore.getState().settings;
-        if (settings?.activeLayout === old) await saveSettings({ ...settings, activeLayout: name });
-        await deleteStored(old);
-        await open(name);
-      }),
-    removeLayout: async (name) => {
-      await guard(async () => {
-        await deleteStored(name);
-        const settings = useReaderStore.getState().settings;
-        const fallback = name === get().name ? (settings?.activeLayout !== name ? (settings?.activeLayout ?? "default") : "default") : get().name;
-        await open(fallback);
-      });
-    },
-    importLayout: (text, name) =>
-      guard(async () => {
-        if (!isValidLayoutName(name)) throw new Error("invalidName");
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(text);
-        } catch {
-          throw new Error("invalidLayout");
-        }
-        const imported = migrateLayout(parsed, name);
-        if (!imported) throw new Error("invalidLayout");
-        await get().save();
-        await persist(name, { ...imported, name });
-        await open(name);
-      }),
-    exportLayout: () => JSON.stringify({ ...get().doc, name: get().name }, null, 2),
-    useAsActive: async () => {
-      await get().save();
-      const settings = useReaderStore.getState().settings;
-      if (settings) await guard(async () => void (await saveSettings({ ...settings, activeLayout: get().name })));
-    },
+    ...createLibrary(set, get),
   };
 });

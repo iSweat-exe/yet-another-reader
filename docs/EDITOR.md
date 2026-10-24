@@ -40,8 +40,18 @@ le montrer sur d'autres pages. Voir [Format des layouts](LAYOUT.md) pour le dét
 - **Glisser** : déplace la sélection. Les **poignées** d'un widget seul le redimensionnent ; `Maj`
   garde ses proportions.
 - **Magnétisme** : le widget s'aligne sur les bords et centres de l'écran et des autres widgets
-  (lignes guides). `Alt` le désactive pendant le glisser. La **Grille** optionnelle (10 px) aide au placement.
+  (lignes guides). `Alt` le désactive pendant le glisser. La **Grille** optionnelle aide au placement : sa taille se règle (2 à 200 px, 10 par défaut) dans le champ qui apparaît à côté du bouton.
 - **Flèches** : déplacent d'un pixel (`Maj` : 10).
+- **Rotation** : le cercle au-dessus du cadre d'une sélection la fait pivoter autour de son centre ; le widget suit
+  le pointeur exactement. `Maj` : par pas de 15°. **Double-clic** sur le cercle : remet à 0°. `Échap` pendant le geste :
+  annule. Un geste = une entrée de l'historique. Le champ **Rotation (°)** de l'inspecteur (saisie, curseur,
+  bouton de remise à zéro) règle la valeur d'un widget seul.
+- Un widget tourné garde ses poignées, qui suivent sa rotation : elles déplacent le bord dans l'axe du widget et le
+  bord opposé reste fixe. Le clic et le rectangle de sélection visent la forme tournée.
+- **Sélection multiple et groupes** : la rotation est rigide. Chaque widget pivote autour du centre de la sélection (un
+  groupe tourne donc comme un bloc) : sa position orbite autour de ce centre et son propre angle augmente d'autant.
+- **Magnétisme et guides** : ils travaillent sur la boîte englobante du widget tourné, telle qu'on la voit. Le
+  redimensionnement d'un widget tourné ne s'aligne pas sur les guides.
 
 > [!SCREENSHOT] selection-handles
 > Un widget seul sélectionné sur l'écran d'aperçu : cadre rose, huit poignées blanches (coins et milieux), étiquette
@@ -123,7 +133,8 @@ qu'un widget est dissous automatiquement.
 | En-tête | **Nom** affiché dans l'éditeur, dupliquer, supprimer. |
 | **Placement** | Ancrage (3×3), `X`, `Y`, `W`, `H`, **Ancrage automatique**. |
 | **Pages** | Les pages où le widget est affiché (au moins une). |
-| **Style** | Couleur, **Taille du texte** (multiplicateur), **Opacité**, **Alignement du texte** (auto = suit l'ancrage), **Animer les chiffres** et leur durée. |
+| **Style** | Couleur, **Taille du texte** (multiplicateur), **Opacité** (curseur de 0 à 100 %), **Alignement du texte** (auto = suit l'ancrage), **Animer les chiffres** et leur durée. |
+| **Typographie** | **Police** (intégrée ou importée depuis un fichier TTF, OTF, WOFF ou WOFF2), **Graisse**, **Espacement des lettres**, **Ombre** (automatique, aucune, douce, forte, lueur) et **Contour**. Pour les widgets intégrés. |
 | **Options** | Pour un widget communautaire : les options de son manifeste. |
 
 > [!SCREENSHOT] properties-panel
@@ -134,7 +145,9 @@ qu'un widget est dissous automatiquement.
 
 Les calques listent les widgets **de la page affichée**, du premier plan à l'arrière-plan. Chaque ligne
 permet de **monter / descendre** le widget dans l'ordre d'empilement et de le **verrouiller** (un
-widget verrouillé ne peut être ni déplacé ni supprimé).
+widget verrouillé ne peut être ni déplacé ni supprimé, et ne se sélectionne plus en cliquant sur l'aperçu : seulement ici).
+Glisse une ligne pour la **réordonner** ; `Échap` annule. Une ligne indique ce qui distingue deux widgets du même type
+(la touche d'une touche, le texte d'un texte).
 
 > [!SCREENSHOT] layers-panel
 > Panneau **Calques** de la page En jeu : une dizaine de widgets du premier plan à l'arrière-plan, une ligne survolée
@@ -143,7 +156,7 @@ widget verrouillé ne peut être ni déplacé ni supprimé).
 
 ## Gérer plusieurs layouts
 
-Crée autant de layouts nommés que tu veux : **Nouveau…** (modèle **Classique**, **Minimal** ou
+Crée autant de layouts nommés que tu veux : **Nouveau…** (modèle **Classique**, **Minimal**, **Graphique en haut**, **Touches**, **Concentré** ou
 **Vide**), **Dupliquer…**, **Renommer…**, **Supprimer**. **Utiliser en jeu** choisit celui que
 l'overlay affiche (le badge **Actif en jeu** indique l'actif).
 
@@ -153,6 +166,13 @@ l'overlay affiche (le badge **Actif en jeu** indique l'actif).
 
 **Importer / exporter** : **Exporter…** donne le JSON du layout (à copier ou télécharger) ; **Importer…**
 accepte du JSON collé ou un fichier. C'est le moyen de partager un layout.
+
+## Versions enregistrées
+
+L'enregistrement automatique écrase le fichier à chaque modification : pour revenir en arrière, le bouton **Versions
+enregistrées** (horloge, à côté d'Annuler / Rétablir) liste les versions plus anciennes du layout, gardées avant qu'un
+lot de modifications ne l'écrase (au plus une toutes les deux minutes, les 40 dernières). Choisis-en une pour la voir,
+puis **Restaurer cette version** : c'est une modification comme une autre, que `Ctrl + Z` annule.
 
 ## Enregistrement
 
@@ -164,6 +184,13 @@ l'overlay en jeu la reprend en direct. Sans lui, `Ctrl + S` enregistre. L'état 
 > Deux détails recadrés, côte à côte : en haut à droite de la barre du haut, l'indicateur « Enregistré » en vert avec sa
 > coche ; et, à côté, l'état « Modifications non enregistrées » en ambre. Sous chacun, l'interrupteur « Enregistrement
 > auto ».
+
+## Palette de commandes
+
+`Ctrl + K` (ou le bouton en forme de loupe) ouvre la palette de commandes : une seule recherche pour **ajouter un widget**,
+**ouvrir un layout**, changer de **thème** ou de **fond** de l'aperçu, aller à une **page**, ou lancer une action
+(enregistrer, annuler, grille, magnétisme). Les flèches parcourent la liste, `Entrée` lance, `Échap` ferme. Pendant que tu
+parcours la liste, la partie droite montre le résultat : le vrai widget, la miniature du thème ou le fond.
 
 ## Données de l'aperçu
 
@@ -182,7 +209,10 @@ travailler sans jeu) ou **En direct** (l'état réel d'osu!lazer).
 | Flèches (`Maj` : ×10) | Déplacer la sélection |
 | `Alt` pendant le glisser | Désactiver le magnétisme |
 | `Maj` pendant un redimensionnement | Garder les proportions |
+| `Maj` pendant une rotation | Pas de 15° |
+| `Échap` pendant un geste | Annuler le geste (déplacement, redimensionnement, rotation) |
 | `Ctrl + S` | Enregistrer |
+| `Ctrl + K` | Palette de commandes |
 | `Échap` | Désélectionner |
 
 > [!SCREENSHOT] shortcuts-bar

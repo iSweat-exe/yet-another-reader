@@ -30,8 +30,8 @@ directly, which costs latency and smoothness. The application therefore limits t
 - **The window is only on screen if the layout draws something on the current page** (and for about 1 s after).
   By default the widgets are on the play pages; in the menus, the game is displayed normally. If you add widgets
   to other pages (song select, results, menu), the window also appears on those pages.
-- **Adjustable refresh rate** (settings → "Overlay refresh rate", 5–144 fps, 30 by default). It is also the rate
-  of the animations. Lower it if you notice a slowdown.
+- **Adjustable refresh rate** (settings → "Overlay refresh rate", 5–360 fps, 30 by default). It is also the rate
+  of the animations. Lower it if you notice a slowdown. Above your display's refresh rate, raising it changes nothing, and the game values are only read every `pollIntervalMs`.
 - **Light rendering**: minimal text shadows, animated numbers without React re-rendering.
 - Outside a play, only useful changes are sent to the overlay (not the clock tick).
 

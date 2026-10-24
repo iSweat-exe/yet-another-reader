@@ -47,10 +47,17 @@ pub struct GameState {
     pub beatmap: Option<Beatmap>,
     /// Difficulty with the selected mods; `None` if the `.osu` file could not be read.
     pub difficulty: Option<Difficulty>,
+    /// Strain of the beatmap over its length with the selected mods; `None` while it is being
+    /// computed (it runs off the reading thread) or if the `.osu` file could not be read.
+    pub difficulty_graph: Option<DifficultyGraph>,
     /// Position of the song clock (the gameplay clock while playing).
     pub time: Option<Time>,
     /// The logged-in user, when signed in.
     pub user: Option<User>,
+    /// The users spectating the logged-in user's play right now (empty when nobody does, or offline).
+    pub spectators: Vec<Spectator>,
+    /// Number of spectators (`spectators` is capped, this one is not).
+    pub spectator_count: u32,
     /// Only present while a `Player` screen is on top.
     pub gameplay: Option<Gameplay>,
 }
@@ -238,6 +245,24 @@ pub struct Difficulty {
     pub pp98: f64,
     pub pp99: f64,
     pub pp100: f64,
+    /// Song time of the first hit object, in milliseconds: the "00:00" of a timer that ignores the intro.
+    pub first_object_ms: f64,
+    /// Song time of the last hit object, in milliseconds: the end of that timer (the outro is not counted).
+    pub last_object_ms: f64,
+}
+
+/// How hard each part of the beatmap is, relative to the rest of the same map.
+#[derive(Debug, Clone, PartialEq, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct DifficultyGraph {
+    /// Song time covered by `buckets`, in milliseconds (bucket `i` starts at `i * durationMs / n`).
+    pub duration_ms: f64,
+    /// The overall difficulty: the star rating with the selected mods (same as `difficulty.stars`).
+    pub overall: f64,
+    /// Song time of the hardest bucket, in milliseconds.
+    pub peak_ms: f64,
+    /// Strain per bucket, `0.0` (calmest) to `1.0` (the hardest section of this map).
+    pub buckets: Vec<f32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Default)]
@@ -263,6 +288,17 @@ pub struct User {
     pub statistics: Option<UserStatistics>,
 }
 
+/// A user spectating the logged-in user (`SpectatorClient.WatchingUsers`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Spectator {
+    pub id: i32,
+    pub username: String,
+    /// `https://a.ppy.sh/{id}` for a real account; absent otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
+}
+
 /// Statistics of the user's main ruleset, as last synced by the game.
 #[derive(Debug, Clone, PartialEq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -277,4 +313,27 @@ pub struct UserStatistics {
     pub max_combo: i32,
     pub ranked_score: i64,
     pub total_score: i64,
+}
+
+#[cfg(test)]
+mod spectator_tests {
+    use super::*;
+
+    #[test]
+    fn spectator_should_omit_a_missing_avatar() {
+        let json = serde_json::to_value(Spectator {
+            id: 0,
+            username: "guest".into(),
+            avatar_url: None,
+        })
+        .unwrap();
+        assert!(json.get("avatarUrl").is_none());
+    }
+
+    #[test]
+    fn game_state_should_serialise_spectators_additively() {
+        let json = serde_json::to_value(GameState::default()).unwrap();
+        assert_eq!(json["spectators"], serde_json::json!([]));
+        assert_eq!(json["spectatorCount"], 0);
+    }
 }

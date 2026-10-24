@@ -13,7 +13,8 @@ sur **Appliquer** (**Annuler** revient aux valeurs en vigueur). Elles sont enreg
 
 | Réglage | Défaut | Effet |
 | --- | --- | --- |
-| **Langue** | Système | Langue de l'interface : *Système*, *Français* ou *English*. La documentation est rédigée en français. |
+| **Langue** | Système | Langue de l'interface : *Système* (la première langue de ton système que l'app connaît), *English*, *Français*, *Español*, *Deutsch*, *Português*, *Русский*, *简体中文*, *한국어* ou *日本語*. La documentation n'existe qu'en français et en anglais : les autres langues lisent l'anglais. |
+| **Thème** | Graphite | L'apparence de l'application : *Graphite* (l'original), *Minuit*, *Papier* (clair), *Terminal*, *Sakura*, *Braise*, *Monochrome*, *Synthwave*, *Game Boy*, *Plan*, *Journal*, *Ambre CRT*, *Nord*, *Cyber* et *Matcha*. Il s'applique tout de suite, sans « Appliquer », et ne change pas l'overlay en jeu. |
 
 ## Mises à jour
 
@@ -80,7 +81,7 @@ une touche tenue moins longtemps que l'intervalle pourrait être manquée.
 | --- | --- | --- |
 | **Overlay en jeu** | activé | Affiche ou masque l'overlay (raccourci `Ctrl + Maj + O`). |
 | **Tester l'overlay** | — | Affiche de fausses données par-dessus osu! pendant 8 secondes, pour juger du rendu sans jouer. |
-| **Rafraîchissement de l'overlay** | `30` fps (5–144) | Cadence de dessin de l'overlay et de ses animations. Plus bas = moins de charge pour le jeu. |
+| **Rafraîchissement de l'overlay** | `30` fps (5–360) | Cadence de dessin de l'overlay et de ses animations. Plus bas = moins de charge pour le jeu. |
 | **Seulement quand osu! est au premier plan** | activé | L'overlay disparaît quand tu passes sur une autre fenêtre. |
 
 Voir [Overlay en jeu](OVERLAY.md) pour les performances et le plein écran.

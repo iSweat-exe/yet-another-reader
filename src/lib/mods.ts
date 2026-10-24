@@ -1,8 +1,18 @@
 /**
- * osu!lazer mod acronym → icon in `public/mods/`, as a path without the extension: `<category>/<name>_<ACRONYM>`.
+ * osu!lazer mod acronym → icon in `public/Textures/icons/mods/`, as a path without the extension: `<category>/<name>_<ACRONYM>`.
  * The file name carries the acronym too, so an icon can be found from its name alone.
  */
 const FILES: Record<string, string> = {
+  "1K": "mod-one-key",
+  "2K": "mod-two-keys",
+  "3K": "mod-three-keys",
+  "4K": "mod-four-keys",
+  "5K": "mod-five-keys",
+  "6K": "mod-six-keys",
+  "7K": "mod-seven-keys",
+  "8K": "mod-eight-keys",
+  "9K": "mod-nine-keys",
+  "10K": "mod-ten-keys",
   AC: "difficulty_increase/accuracy_challenge_AC",
   AD: "fun/approach_different_AD",
   AL: "conversion/alternate_AL",
@@ -68,5 +78,5 @@ const FILES: Record<string, string> = {
 export function modIconUrl(mod: string): string | undefined {
   const acronym = /^[A-Z0-9]+/i.exec(mod)?.[0].toUpperCase();
   const file = acronym ? FILES[acronym] : undefined;
-  return file ? `/mods/${file}.png` : undefined;
+  return file ? `/Textures/icons/mods/${file}.png` : undefined;
 }

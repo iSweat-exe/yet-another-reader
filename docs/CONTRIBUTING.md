@@ -124,6 +124,92 @@ Si le widget a besoin d'une donnée que le reader ne publie pas encore, commence
 `lazer-reader` (modèle `model.rs`, lecture dans `readers.rs`/`session.rs`), puis dans `src/lib/types.ts`
 et dans [API locale](API.md).
 
+## Images et sons d'osu!lazer
+
+Les textures d'osu!lazer sont dans `public/Textures/` (logo, icônes, drapeaux, médailles, fonds, curseurs, avatar
+invité) et les sons de l'interface dans `public/Samples/UI/`. Ce sont des URL simples : rien n'est importé dans le bundle.
+
+- **Chemins** : passe par `src/lib/assets.ts` (`LOGO_URL`, `GUEST_AVATAR_URL`, `rulesetIconUrl`, `flagUrl`,
+  `menuBackgroundUrl`) et `src/lib/mods.ts` (`modIconUrl`) plutôt que d'écrire un chemin à la main. Un test vérifie que
+  les fichiers existent.
+- **Fonds** : un fond est décoratif, sombre, flou et chargé en différé (`<Backdrop>` : `loading="lazy"`,
+  `decoding="async"`, fondu à l'arrivée). Les fonds de menu sont des **webp** de moins de 20 Ko ; leurs originaux jpg
+  (1 Mo chacun) sont gardés hors du build, dans `assets-src/menu/`. **Aucun fond dans l'overlay en jeu** par défaut.
+- **Images dans un widget** : toujours `decoding="async"`, une taille fixe, et un repli (`onError`) comme pour l'avatar.
+- **Icônes** : l'interface garde un seul jeu d'icônes, `<Icon name="…" />` (`src/components/Icon.tsx`) ; les textures
+  servent aux images qui *représentent* quelque chose du jeu (mode, mod, pays, avatar).
+  - Quand une icône d'osu!lazer (`public/Textures/icons/`) a le bon sens, `Icon` l'utilise : le PNG blanc sert de
+    **masque CSS** sur `currentColor`, donc couleur, taille et états (survol, désactivé, accent) viennent du texte
+    autour, comme pour un SVG. Sinon l'icône SVG reste (ne force pas un mauvais sens).
+  - **Ajouter ou mapper une icône osu** : une ligne dans `OSU_ICONS` (`src/components/osuIcons.ts`), `nom: icon("fichier", ext)`
+    (chemin sous `Textures/icons/` sans `.png`). Un nom déjà présent dans les chemins SVG est remplacé (supprime alors le
+    SVG devenu mort) ; un nouveau nom devient un nouveau nom d'icône. `ext` est la part du carré que le dessin remplit
+    sur son grand côté, en % (une croix seule ≈ 50, un cercle ≈ 90 : mesure-le) ; `Icon` met chaque dessin à la même
+    taille visuelle. `flip` retourne l'image. Le test `osuIcons.test.ts` vérifie que le fichier existe.
+  - Les images sont préchargées à l'inactivité et un `Icon` reste invisible (mais garde sa place) tant que son PNG n'est
+    pas là. N'utilise pas d'icône osu dans l'overlay en jeu sans raison : ses widgets gardent les SVG, plus légers.
+  - Un geste au survol (`iconGestures.ts`) marche sur les deux sortes d'icônes.
+
+### Sons de l'interface
+
+`src/lib/sfx.ts` joue les sons avec l'API Web Audio : un seul `AudioContext`, des buffers décodés à la première
+utilisation puis gardés, un nombre de voix limité, un volume maître. Rien ne sonne avant le premier clic ou la
+première touche (politique d'autoplay), et **jamais dans l'overlay en jeu**.
+
+`src/lib/uiSounds.ts` (installé une fois par `App`, via `useUiSounds()`) donne à chaque élément **le son que lui
+donne osu!lazer**, avec quelques écouteurs sur le document : un composant n'a rien à faire pour avoir le son standard.
+
+**Règles reprises de lazer** : un contrôle joue `<set>-hover` à l'arrivée du pointeur et `<set>-select` au clic (clic
+gauche) ; un set sans échantillon propre utilise celui de `default`. Le survol est limité globalement (20 ms), absent
+quand un bouton de la souris est enfoncé (défilement, glisser) et pour un contrôle désactivé ; cliquer un contrôle
+désactivé joue `<set>-select-disabled`. Le survol varie de ±2 % de hauteur, le clic de ±1 %. Un curseur joue
+`notch-tick` seulement quand la valeur change (30 ms au plus), plus aigu avec la valeur.
+
+| Élément de YAR | Équivalent lazer (`HoverSampleSet`) | Survol | Clic |
+| --- | --- | --- | --- |
+| Bouton avec texte (Appliquer, Tester, Annuler…) | `OsuButton` : `Button` | `button-hover` | `button-select` |
+| Bouton sans texte (icône : copier, barre d'outils de l'éditeur, panneaux) | `OsuClickableContainer` : `Default` | `default-hover` | `default-select` |
+| Bouton OK d'un dialogue (accent) | `PopupDialogOkButton` : `DialogOk` | `default-hover` (pas de `dialog-ok-hover`) | `dialog-ok-select` |
+| Bouton Annuler / fermer d'un dialogue | `PopupDialogCancelButton` : `DialogCancel` | `default-hover` | `dialog-cancel-select` |
+| Bouton dangereux d'un dialogue (rouge) | `PopupDialogDangerousButton` | `button-hover` | `dialog-dangerous-select` |
+| Onglets (fenêtre, pages de layout) | `OsuTabControl` : `TabSelect` | `default-hover` (pas de `tabselect-hover`) | `tabselect-select` (seulement si l'onglet change) |
+| Interrupteurs, cases à cocher | `OsuCheckbox` : `HoverSounds` + sons d'état | `default-hover` | `check-on` / `check-off` |
+| Curseurs | `OsuSliderBar` | aucun | `notch-tick` à chaque changement de valeur |
+| En-tête d'une liste déroulante | `OsuDropdownHeader` : `HoverSounds` | `default-hover` | aucun (la liste qui s'ouvre joue `dropdown-open`) |
+| Liste déroulante (ouverture / fermeture) | `OsuDropdownMenu` | | `dropdown-open` / `dropdown-close` |
+| Option d'une liste, entrée de menu | `HoverClickSounds` : `Default` | `default-hover` | `default-select` |
+| Menu contextuel (ouverture / fermeture) | `OsuContextMenu` / `OsuMenu` | | `menu-open-select` / `menu-close` |
+| Dialogue (ouverture / fermeture) | `DialogOverlay` | | `dialog-pop-in` / `dialog-pop-out` |
+| Liste de pages de la documentation (`data-sfx="sidebar"`) | `SidebarButton` : `ButtonSidebar` | `button-sidebar-hover` | `button-sidebar-select` |
+| Notification (mise à jour disponible / téléchargée / en échec) | `Notification` | | `notification-default` / `notification-done` / `notification-error` |
+| Toast d'erreur de l'éditeur (`role="alert"` + classe `toast`) | `SimpleErrorNotification` | | `notification-error` à l'arrivée, `overlay-pop-out` au départ |
+| Erreur en ligne (`role="alert"`) | (pas d'équivalent trouvé) | | `generic-error` |
+| Boutons « monter / descendre » d'un calque (`data-sfx="swap"`) | réordonner | `button-hover` | `item-swap` |
+| Retour (`data-sfx="back"`) | `OsuScreen` à la sortie | `button-hover` | `screen-back` |
+
+Sources : `osu.Game/Graphics/UserInterface/` (`HoverSampleSet.cs`, `HoverSounds.cs`, `HoverClickSounds.cs`,
+`HoverSampleDebounceComponent.cs`, `OsuButton.cs`, `OsuCheckbox.cs`, `OsuTabControl.cs`, `OsuDropdown.cs`,
+`OsuSliderBar.cs`, `OsuMenu.cs`, `OsuContextMenu.cs`, `OsuMenuSamples.cs`), `Overlays/Dialog/PopupDialog*.cs`,
+`Overlays/DialogOverlay.cs`, `Overlays/Notifications/*.cs`, `Overlays/Settings/SidebarButton.cs`,
+`Screens/OsuScreen.cs` dans <https://github.com/ppy/osu>. Pas utilisés par YAR : les échantillons `toolbar-*`,
+`noclick-*`, `osd-*`, `metronome-*`, `shutter`, `wave-*`, `bss-*` (lazer ne les appelle plus ou pour des
+fonctions que YAR n'a pas), et `ruleset-select-*` (YAR n'a pas de sélecteur de mode).
+
+Pour choisir à la main, un contrôle ou son conteneur reçoit `data-sfx` (`none`, `default`, `button`, `sidebar`, `ok`,
+`cancel`, `danger`, `back`, `swap`), ou un composant joue un son précis :
+
+```tsx
+<nav data-sfx="sidebar">…</nav>
+```
+
+```ts
+import { playSfx } from "../lib/sfx";
+playSfx("check-on");                                   // par son nom (`SFX_NAMES`)
+```
+
+Les réglages (activé, volume) sont dans **Réglages → Général**, gardés dans le `localStorage` de la fenêtre
+(`yar.sfx`) : c'est une préférence d'interface, pas un réglage du reader.
+
 ## Créer un widget communautaire
 
 Pas besoin de toucher au code de l'application : voir [Widgets communautaires](WIDGETS.md). Pour le

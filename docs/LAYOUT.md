@@ -63,12 +63,18 @@ les widgets gardent leur taille et restent sur leurs bords.
 | `anchor`, `x`, `y` | Ancrage et distances (voir ci-dessus). |
 | `anchorLocked` | `true` si l'ancrage a été choisi à la main (il ne suit alors plus la position). |
 | `w`, `h` | Taille en pixels de référence. |
+| `rotation` | Rotation en degrés, dans le sens horaire, autour du centre du rectangle du widget (défaut `0`, absent quand c'est `0`). Ramenée dans `]-180, 180]` ; une valeur absente, non numérique ou infinie vaut `0`. Seul le dessin pivote : `x`, `y`, `w`, `h` et l'ancrage restent ceux du rectangle non tourné, donc un layout sans `rotation` (ancien) se lit et s'affiche à l'identique. |
 | `pages` | Pages du jeu où le widget est affiché (voir ci-dessous). |
 | `style.color` | Couleur CSS du texte / des barres. |
 | `style.scale` | Multiplicateur de la taille du texte (défaut `1`). La taille de base dépend de `h`. |
 | `style.opacity` | `0`–`1`. |
 | `style.align` | `left`, `center` ou `right`. Absent = automatique : suit l'ancrage du widget. |
 | `style.animate`, `style.animationMs` | Animation des chiffres (voir plus bas). |
+| `style.font` | Police : `default` (celle du widget), `system`, `serif`, `mono`, `rounded`, `condensed`, `handwriting`, ou `custom:<id>` pour une police importée (même `id` que les images : `<32 chiffres hexadécimaux>.<ttf\|otf\|woff\|woff2>`). Absent = `default`. |
+| `style.weight` | Graisse de **tout** le texte du widget, `100` à `900` (arrondie à la centaine). Absent = chaque partie du widget garde la sienne. |
+| `style.tracking` | Espacement des lettres en centièmes d'em, `-10` à `50` (défaut `0`). |
+| `style.shadow`, `style.shadowColor` | Ombre du texte : `auto` (l'ombre de lisibilité habituelle), `none`, `soft`, `strong` ou `glow` (lueur, dans la couleur du texte si `shadowColor` est absent). |
+| `style.outline`, `style.outlineColor` | Contour du texte en pixels, `0` à `8` (défaut `0`), et sa couleur (défaut noir). |
 | `locked` | Éditeur : le widget ne peut pas être déplacé. |
 | `group` | Éditeur : identifiant du groupe auquel appartient le widget (`group-1`…). Les widgets qui partagent la même valeur forment un groupe, sélectionné et déplacé d'un bloc. Un groupe d'un seul widget est ignoré. N'affecte pas le rendu. |
 

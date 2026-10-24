@@ -54,12 +54,58 @@ export function setInput(next: InputState, now = performance.now()): void {
   useReaderStore.setState((s) => ({ input: next, inputStats: applyInput(s.inputStats, s.input, next, now, s.game.gameplay !== null) }));
 }
 
+/**
+ * Returns `prev` when `next` is deeply equal to it, otherwise `next` with every unchanged branch
+ * replaced by the previous object. Events from Tauri are freshly deserialised, so without this
+ * every object-valued selector (`s.game.beatmap`, `s.game.gameplay`…) would see a new reference on
+ * each emit and re-render its widget even though nothing in it changed.
+ */
+export function shareStructure<T>(prev: T, next: T): T {
+  if (Object.is(prev, next)) return prev;
+  if (typeof prev !== "object" || typeof next !== "object" || prev === null || next === null) return next;
+  if (Array.isArray(prev) !== Array.isArray(next)) return next;
+  if (Array.isArray(prev) && Array.isArray(next)) {
+    let same = prev.length === next.length;
+    const out = next.map((item, i) => {
+      const shared = shareStructure(prev[i], item);
+      if (shared !== prev[i]) same = false;
+      return shared;
+    });
+    return (same ? prev : out) as T;
+  }
+  const a = prev as Record<string, unknown>;
+  const b = next as Record<string, unknown>;
+  const keys = Object.keys(b);
+  let same = keys.length === Object.keys(a).length;
+  for (const key of keys) {
+    const shared = shareStructure(a[key], b[key]);
+    if (shared !== a[key] || !(key in a)) same = false;
+    b[key] = shared;
+  }
+  return same ? prev : next;
+}
+
 /** A new game state; the press counters start again with every play. */
+let liveFrozen = false;
+
+/**
+ * While the editor simulates gameplay, the real game's updates are held back: both would write the same
+ * `game` and `input` slices and the preview would flicker between the fake play and the real one.
+ * The mock feeds the store through `setGame` / `setInput` directly; only the events of the app go through here.
+ */
+export function freezeLiveFeed(frozen: boolean): void {
+  liveFrozen = frozen;
+}
+
 export function setGame(game: GameState): void {
-  useReaderStore.setState((s) => ({
-    game,
-    inputStats: !s.game.gameplay && game.gameplay ? { ...s.inputStats, counts: {} } : s.inputStats,
-  }));
+  useReaderStore.setState((s) => {
+    const shared = shareStructure(s.game, game);
+    if (shared === s.game) return s;
+    return {
+      game: shared,
+      inputStats: !s.game.gameplay && shared.gameplay ? { ...s.inputStats, counts: {} } : s.inputStats,
+    };
+  });
 }
 
 /** Saves new settings; resolves with the settings actually in effect, rejects with a message. */
@@ -77,17 +123,23 @@ export async function saveSettings(next: Settings): Promise<Settings> {
  * Subscribes the store to the Rust side. Events are subscribed before the initial values
  * are fetched so nothing emitted in between is lost.
  */
-export async function connectReaderStore(): Promise<() => void> {
+export async function connectReaderStore(options: { lite?: boolean } = {}): Promise<() => void> {
+  // The overlay (`lite`) only draws widgets: it skips the diagnostics, journal and update events
+  // that would wake its store (and the game's compositor) for nothing.
   const unlisteners = await Promise.all([
-    listen<ReaderStatus>("reader-status", (e) => useReaderStore.setState({ status: e.payload })),
-    listen<GameState>("game-state", (e) => setGame(e.payload)),
-    listen<InputState>("input-state", (e) => setInput(e.payload)),
+    listen<GameState>("game-state", (e) => liveFrozen || setGame(e.payload)),
+    listen<InputState>("input-state", (e) => liveFrozen || setInput(e.payload)),
     listen<ApiStatus>("api-status", (e) => useReaderStore.setState({ api: e.payload })),
-    listen<RtssStatus>("rtss-status", (e) => useReaderStore.setState({ rtss: e.payload })),
     listen<Settings>("settings-changed", (e) => useReaderStore.setState({ settings: e.payload })),
-    listen<ReaderDiag>("reader-diag", (e) => useReaderStore.setState({ diag: e.payload })),
-    listen<LogLine>("debug-log", (e) => appendLog(e.payload)),
-    listen<UpdateStatus>("update-status", (e) => useReaderStore.setState({ update: e.payload })),
+    ...(options.lite
+      ? []
+      : [
+          listen<ReaderStatus>("reader-status", (e) => useReaderStore.setState({ status: e.payload })),
+          listen<RtssStatus>("rtss-status", (e) => useReaderStore.setState({ rtss: e.payload })),
+          listen<ReaderDiag>("reader-diag", (e) => useReaderStore.setState({ diag: e.payload })),
+          listen<LogLine>("debug-log", (e) => appendLog(e.payload)),
+          listen<UpdateStatus>("update-status", (e) => useReaderStore.setState({ update: e.payload })),
+        ]),
   ]);
   const [status, game, settings, api, rtss, diag, update] = await Promise.all([
     invoke<ReaderStatus>("get_reader_status"),

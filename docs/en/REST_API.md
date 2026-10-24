@@ -41,6 +41,7 @@ In the JavaScript examples on this page, `API` is `"http://127.0.0.1:24051/api/v
 | [`GET /screen`](#get-screen) | object | Current screen and play state |
 | [`GET /beatmap`](#get-beatmap) | object or `null` | The selected beatmap |
 | [`GET /difficulty`](#get-difficulty) | object or `null` | Stars and PP with the active mods |
+| [`GET /difficulty-graph`](#get-difficulty-graph) | object or `null` | Difficulty along the song (graph) |
 | [`GET /mods`](#get-mods) | object | Selected mods and mode |
 | [`GET /time`](#get-time) | object or `null` | Position in the song |
 | [`GET /user`](#get-user) | object or `null` | Logged-in user and their statistics |
@@ -50,6 +51,7 @@ In the JavaScript examples on this page, `API` is `"http://127.0.0.1:24051/api/v
 | [`GET /inputs`](#get-inputs) | object | Keys and mouse buttons held, **real time** |
 | [`GET /assets/background`](#get-assetsbackground) | image | Background picture of the beatmap |
 | [`GET /assets/audio`](#get-assetsaudio) | audio | Audio file of the beatmap (`Range` supported) |
+| [`GET /images/{id}`](#get-imagesid) | image | A picture imported for the Image widget |
 | [`GET /widgets`](#get-widgets) | array | Manifests of the community widgets |
 | [`GET /docs`](#get-docs) | Markdown | The API documentation |
 | `GET /ws` | WebSocket | State stream: see [WebSocket](WEBSOCKET.md#state-stream) |
@@ -320,7 +322,15 @@ if (state.gameplay) console.log(state.gameplay.score, state.gameplay.combo);
     "pp95": 250.0,
     "pp98": 290.0,
     "pp99": 310.0,
-    "pp100": 340.0
+    "pp100": 340.0,
+    "firstObjectMs": 3200.0,
+    "lastObjectMs": 176400.0
+  },
+  "difficultyGraph": {
+    "durationMs": 180000.0,
+    "overall": 7.4,
+    "peakMs": 174750.0,
+    "buckets": [0.15, 0.158, 0.167, 0.175, 0.183, 0.192, 0.2, 0.208, 0.217, 0.225, 0.233, 0.242, 0.25, 0.258, 0.267, 0.275, 0.283, 0.292, 0.62, 0.563, 0.644, 0.714, 0.767, 0.796, 0.797, 0.772, 0.722, 0.653, 0.573, 0.61, 0.686, 0.747, 0.787, 0.8, 0.786, 0.746, 0.684, 0.608, 0.575, 0.655, 0.723, 0.773, 0.798, 0.795, 0.766, 0.713, 0.641, 0.56, 0.622, 0.696, 0.755, 0.79, 0.8, 0.781, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.6, 0.607, 0.613, 0.616, 0.625, 0.635, 0.644, 0.651, 0.653, 0.651, 0.658, 0.675, 0.688, 0.696, 0.696, 0.689, 0.689, 0.711, 0.73, 0.741, 0.741, 0.731, 0.715, 0.745, 0.77, 0.785, 0.787, 0.775, 0.753, 0.774, 0.807, 0.828, 0.834, 0.822, 0.796, 0.8, 0.84, 0.869, 0.88, 0.87, 0.843, 0.821, 0.87, 0.908, 0.926, 0.92, 0.892, 0.849, 0.895, 0.943, 0.97, 0.97, 0.943, 0.897]
   },
   "time": {
     "currentMs": 8000.0,
@@ -345,6 +355,12 @@ if (state.gameplay) console.log(state.gameplay.score, state.gameplay.combo);
       "totalScore": 21000000000
     }
   },
+  "spectators": [
+    { "id": 2, "username": "peppy", "avatarUrl": "https://a.ppy.sh/2" },
+    { "id": 124493, "username": "Cookiezi", "avatarUrl": "https://a.ppy.sh/124493" },
+    { "id": 4787150, "username": "mrekk", "avatarUrl": "https://a.ppy.sh/4787150" }
+  ],
+  "spectatorCount": 3,
   "gameplay": {
     "score": 15400,
     "scoreWithoutMods": 11200,
@@ -399,8 +415,11 @@ The fields are described in the [data model](DATA_MODEL.md#gamestate-state). Res
   "mods": [],
   "beatmap": null,
   "difficulty": null,
+  "difficultyGraph": null,
   "time": null,
   "user": null,
+  "spectators": [],
+  "spectatorCount": 0,
   "gameplay": null
 }
 ```
@@ -518,11 +537,52 @@ if (d) console.log(`${d.stars.toFixed(2)}★, ${Math.round(d.pp98)}pp at 98 %`);
   "pp95": 250.0,
   "pp98": 290.0,
   "pp99": 310.0,
-  "pp100": 340.0
+  "pp100": 340.0,
+  "firstObjectMs": 3200.0,
+  "lastObjectMs": 176400.0
 }
 ```
 
 `null` if no beatmap is selected, or if its `.osu` file cannot be found. See [`Difficulty`](DATA_MODEL.md#difficulty).
+
+### `GET /difficulty-graph`
+
+The difficulty of the beatmap **along the whole song**, with the active mods: 120 bars normalised to the map itself
+(`0` = calm section, `1` = the hardest of this map), to draw a graph. It is computed once per map, mods and speed, off the
+reading thread: the response is `null` for that fraction of a second.
+
+**Usage example**
+
+```bash
+curl http://127.0.0.1:24051/api/v1/difficulty-graph
+```
+
+```js
+const g = await (await fetch(`${API}/difficulty-graph`)).json();
+if (g) console.log(`${g.overall.toFixed(2)}★, hardest section at ${Math.round(g.peakMs / 1000)} s`);
+```
+
+**Response example**: `200`
+
+```json
+{
+  "durationMs": 180000.0,
+  "overall": 7.4,
+  "peakMs": 174750.0,
+  "buckets": [
+    0.15, 0.158, 0.167, 0.175, 0.183, 0.192, 0.2, 0.208, 0.217, 0.225, 0.233, 0.242, 0.25, 0.258, 0.267,
+    0.275, 0.283, 0.292, 0.62, 0.563, 0.644, 0.714, 0.767, 0.796, 0.797, 0.772, 0.722, 0.653, 0.573, 0.61,
+    0.686, 0.747, 0.787, 0.8, 0.786, 0.746, 0.684, 0.608, 0.575, 0.655, 0.723, 0.773, 0.798, 0.795, 0.766,
+    0.713, 0.641, 0.56, 0.622, 0.696, 0.755, 0.79, 0.8, 0.781, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12,
+    0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.6, 0.607, 0.613, 0.616, 0.625, 0.635, 0.644, 0.651, 0.653,
+    0.651, 0.658, 0.675, 0.688, 0.696, 0.696, 0.689, 0.689, 0.711, 0.73, 0.741, 0.741, 0.731, 0.715, 0.745,
+    0.77, 0.785, 0.787, 0.775, 0.753, 0.774, 0.807, 0.828, 0.834, 0.822, 0.796, 0.8, 0.84, 0.869, 0.88,
+    0.87, 0.843, 0.821, 0.87, 0.908, 0.926, 0.92, 0.892, 0.849, 0.895, 0.943, 0.97, 0.97, 0.943, 0.897
+  ]
+}
+```
+
+`null` if no beatmap is selected, if its `.osu` file cannot be found or until the computation is done. See [`DifficultyGraph`](DATA_MODEL.md#difficultygraph).
 
 ### `GET /mods`
 
@@ -867,6 +927,50 @@ accept-ranges: bytes
 ```
 
 The errors are those of [`/assets/background`](#get-assetsbackground).
+
+## Imported images
+
+### `GET /images/{id}`
+
+A picture the user imported for the [Image](BUILTIN_WIDGETS.md#miscellaneous) widget (the **Import an image…** button of
+the editor), or a **font** imported for a widget's text (`style.font`, see [Layout](LAYOUT.md)), served with the right
+`Content-Type` (`font/woff2`…). The file is copied into the app's data under a name that is a **hash of
+its content**: the `id` (`<32 hexadecimal digits>.<png|jpg|gif|webp|svg|ttf|otf|woff|woff2>`) is the only thing a layout keeps, and the same
+picture imported twice has the same `id`. Only **PNG, JPEG, GIF, WebP, SVG** (pictures) or **TTF, OTF, WOFF, WOFF2** (fonts) files of 15 MB at most are accepted (the
+type is checked on the content, not on the extension; an SVG with a script is refused). An `id` that does not have exactly
+this shape answers `404`: no other file can be reached.
+
+**Usage example**
+
+```bash
+curl http://127.0.0.1:24051/api/v1/images/cb27a70bc0fd6a4607c0b158be921383.png -o image.png
+```
+
+```html
+<img src="http://127.0.0.1:24051/api/v1/images/cb27a70bc0fd6a4607c0b158be921383.png" />
+```
+
+```js
+const layoutOptions = { image: "cb27a70bc0fd6a4607c0b158be921383.png" }; // what an Image widget keeps
+const src = `${API}/images/${layoutOptions.image}`;
+```
+
+**Response example**: `200`, `Content-Type: image/png`, `Cache-Control: public, max-age=31536000, immutable` (the `id` never
+changes content), `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox; default-src 'none'; style-src 'unsafe-inline'`
+(an SVG opened on its own runs nothing), then the bytes of the picture.
+
+**Errors**
+
+| Code | `error.code` | `error.message` |
+| --- | --- | --- |
+| `404` | `notFound` | `no such picture`: the `id` is invalid, the picture was deleted, or the app has no images folder |
+| `500` | `io` | File read error |
+
+Example:
+
+```json
+{"error": {"code": "notFound", "message": "no such picture"}}
+```
 
 ## Widgets and documentation
 

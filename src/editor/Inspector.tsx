@@ -2,10 +2,14 @@ import { Icon } from "../components/Icon";
 import { type MessageKey, useT } from "../i18n";
 import { useReaderStore } from "../lib/store";
 import type { WidgetOption } from "../lib/types";
-import { ANCHORS, type Anchor, type WidgetInstance, type WidgetStyle, alignFromAnchor, withAnchor, withAutoAnchor } from "../overlay/layout";
+import { Slider } from "../components/controls";
+import { ANCHORS, type Anchor, type WidgetInstance, type WidgetStyle, alignFromAnchor, normalizeRotation, withAnchor, withAutoAnchor } from "../overlay/layout";
 import { PAGES } from "../overlay/pages";
 import { WIDGETS } from "../widgets/registry";
 import { optionValues } from "../widgets/web";
+import { imageIdOf } from "../lib/images";
+import { ImageField } from "./ImageField";
+import { Typography } from "./Typography";
 import { ColorInput, IconButton, NumberInput, Row, Section, SelectInput, Toggle, controlClass } from "./fields";
 import { averageGap, unitsOf } from "./geometry";
 import { viewWidthOf, useEditor } from "./useEditor";
@@ -24,7 +28,7 @@ function AnchorPicker({ value, onChange }: { value: Anchor; onChange: (anchor: A
           title={t(`anchor.${anchor}`)}
           aria-label={t(`anchor.${anchor}`)}
           onClick={() => onChange(anchor)}
-          className={`flex size-8 items-center justify-center rounded-md outline-none transition-[background-color,scale] duration-150 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] ${anchor === value ? "bg-accent" : "hover:bg-white/10"}`}
+          className={`flex size-8 items-center justify-center rounded-md outline-none transition-[background-color,scale] duration-150 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] ${anchor === value ? "bg-accent" : "hover:bg-wash/10"}`}
         >
           <span className={`size-1.5 rounded-full transition-colors duration-150 ${anchor === value ? "bg-surface" : "bg-ink-dim"}`} />
         </button>
@@ -38,8 +42,23 @@ function OptionField({ option, value, onChange }: { option: WidgetOption; value:
   switch (option.type) {
     case "boolean":
       return <Toggle label={label} checked={value === true} onChange={onChange} />;
-    case "number":
-      return <NumberInput label={label} value={typeof value === "number" ? value : 0} min={option.min} max={option.max} onChange={onChange} />;
+    case "number": {
+      const current = typeof value === "number" ? value : 0;
+      const { min, max } = option;
+      // A bounded number is a slider (live, 1:1) with its exact value beside it; double-click puts it back to its default.
+      if (typeof min === "number" && typeof max === "number" && max > min && Number.isInteger(min) && Number.isInteger(max)) {
+        const reset = typeof option.default === "number" ? option.default : undefined;
+        return (
+          <>
+            <div className="w-24" onDoubleClick={reset === undefined ? undefined : () => onChange(reset)}>
+              <Slider label={label} value={Math.round(current)} min={min} max={max} onChange={onChange} />
+            </div>
+            <NumberInput label={label} value={current} min={min} max={max} className="w-14" onChange={onChange} />
+          </>
+        );
+      }
+      return <NumberInput label={label} value={current} min={min} max={max} onChange={onChange} />;
+    }
     case "color":
       return <ColorInput label={label} value={typeof value === "string" ? value : "#ffffff"} onChange={onChange} />;
     case "select": {
@@ -51,6 +70,21 @@ function OptionField({ option, value, onChange }: { option: WidgetOption; value:
   }
 }
 
+/** The widget's opacity as a slider with its percentage beside it (what is stored is `0..1`). */
+function OpacityRow({ value, onChange }: { value: number; onChange: (opacity: number) => void }) {
+  const t = useT();
+  const percent = Math.round(Math.min(1, Math.max(0, value)) * 100);
+  const set = (p: number) => onChange(Math.round(p) / 100);
+  return (
+    <Row label={t("editor.opacity")}>
+      <div className="w-24">
+        <Slider label={t("editor.opacity")} value={percent} min={0} max={100} onChange={set} />
+      </div>
+      <NumberInput label={t("editor.opacity")} value={percent} min={0} max={100} className="w-14" onChange={set} />
+    </Row>
+  );
+}
+
 function SingleInspector({ widget }: { widget: WidgetInstance }) {
   const t = useT();
   const doc = useEditor((s) => s.doc);
@@ -60,6 +94,8 @@ function SingleInspector({ widget }: { widget: WidgetInstance }) {
   const viewWidth = viewWidthOf(doc, aspect);
 
   const patch = (changes: Partial<WidgetInstance>) => updateWidget(widget.id, changes);
+  // 0 is the default, so it is left out of the layout; any other angle is wrapped to (-180, 180].
+  const setRotation = (degrees: number) => patch({ rotation: normalizeRotation(degrees) || undefined });
   const style = (changes: Partial<WidgetStyle>) => patch({ style: { ...widget.style, ...changes } });
   const isWeb = widget.type === "web";
   const builtin = isWeb ? undefined : WIDGETS.find((w) => w.type === widget.type);
@@ -68,7 +104,7 @@ function SingleInspector({ widget }: { widget: WidgetInstance }) {
 
   return (
     <>
-      <header className="flex items-center gap-2.5 border-b border-white/5 px-3 py-3">
+      <header className="flex items-center gap-2.5 border-b border-wash/5 px-3 py-3">
         <Icon name={widgetIcon(widget.type)} size={18} className="text-accent" />
         <div className="min-w-0 flex-1">
           <input aria-label={t("editor.name")} value={widget.name ?? ""} placeholder={typeLabel} onChange={(e) => patch({ name: e.target.value || undefined })} className="w-full truncate rounded bg-transparent px-1 py-0.5 text-sm font-medium text-ink outline-none transition-shadow duration-150 placeholder:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)]" />
@@ -92,6 +128,13 @@ function SingleInspector({ widget }: { widget: WidgetInstance }) {
             <NumberInput label={t("editor.height")} prefix="H" className="w-full" value={widget.h} min={1} onChange={(h) => patch({ h })} />
           </div>
         </div>
+        <Row label={t("editor.rotation")}>
+          <div className="w-20">
+            <Slider label={t("editor.rotation")} value={widget.rotation ?? 0} min={-180} max={180} onChange={setRotation} />
+          </div>
+          <NumberInput label={t("editor.rotation")} value={widget.rotation ?? 0} step={1} className="w-14" onChange={setRotation} />
+          <IconButton icon="refresh" label={t("editor.rotationReset")} disabled={!widget.rotation} onClick={() => setRotation(0)} />
+        </Row>
         <Row label={t("editor.anchorAuto")}>
           <Toggle
             label={t("editor.anchorAuto")}
@@ -147,19 +190,20 @@ function SingleInspector({ widget }: { widget: WidgetInstance }) {
               </Row>
             ))
           )}
-          <Row label={t("editor.opacity")}>
-            <NumberInput label={t("editor.opacity")} value={widget.style?.opacity ?? 1} min={0} max={1} step={0.05} onChange={(opacity) => style({ opacity })} />
-          </Row>
+          <OpacityRow value={widget.style?.opacity ?? 1} onChange={(opacity) => style({ opacity })} />
         </Section>
       ) : (
         <>
           {builtin?.options && (
             <Section title={t("editor.options")}>
               {builtin.options.map((option) => {
-                const choices = option.choices?.map((c) => ({ ...c, label: t(`widget.choice.${option.key}.${String(c.value)}` as MessageKey) }));
+                const choices = option.choicesFor ? option.choicesFor(values) : option.choices?.map((c) => ({ ...c, label: t(`widget.choice.${option.key}.${String(c.value)}` as MessageKey) }));
+                if (option.type === "image") {
+                  return <ImageField key={option.key} value={imageIdOf(values[option.key])} onChange={(id) => patch({ options: { ...values, [option.key]: id } })} />;
+                }
                 return (
                   <Row key={option.key} label={t(option.labelKey)}>
-                    <OptionField option={{ ...option, label: t(option.labelKey), choices }} value={values[option.key]} onChange={(value) => patch({ options: { ...values, [option.key]: value } })} />
+                    <OptionField option={{ ...option, label: t(option.labelKey), choices }} value={values[option.key]} onChange={(value) => patch({ options: { ...values, ...option.alsoSet?.(value), [option.key]: value } })} />
                   </Row>
                 );
               })}
@@ -172,9 +216,7 @@ function SingleInspector({ widget }: { widget: WidgetInstance }) {
           <Row label={t("editor.scale")}>
             <NumberInput label={t("editor.scale")} value={widget.style?.scale ?? 1} min={0.1} max={10} step={0.1} onChange={(scale) => style({ scale })} />
           </Row>
-          <Row label={t("editor.opacity")}>
-            <NumberInput label={t("editor.opacity")} value={widget.style?.opacity ?? 1} min={0} max={1} step={0.05} onChange={(opacity) => style({ opacity })} />
-          </Row>
+          <OpacityRow value={widget.style?.opacity ?? 1} onChange={(opacity) => style({ opacity })} />
           <Row label={t("editor.textAlign")}>
             <SelectInput
               label={t("editor.textAlign")}
@@ -201,6 +243,7 @@ function SingleInspector({ widget }: { widget: WidgetInstance }) {
             </div>
           )}
         </Section>
+        <Typography style={widget.style} onChange={style} />
         </>
       )}
     </>

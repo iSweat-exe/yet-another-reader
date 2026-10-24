@@ -106,3 +106,51 @@ describe("spacing", () => {
     expect(left("b")).toBe(300);
   });
 });
+
+describe("rotation in the editor", () => {
+  beforeEach(() => load([widget("a", 0), widget("b", 200)], ["a"]));
+
+  it("sets and clears a rotation in one undo step each", () => {
+    useEditor.getState().setRotation(["a"], 30);
+    expect(widgets().find((w) => w.id === "a")?.rotation).toBe(30);
+    useEditor.getState().setRotation(["a"], 0);
+    expect("rotation" in (widgets().find((w) => w.id === "a") as WidgetInstance)).toBe(false);
+    useEditor.getState().undo();
+    expect(widgets().find((w) => w.id === "a")?.rotation).toBe(30);
+    useEditor.getState().undo();
+    expect(widgets().find((w) => w.id === "a")?.rotation).toBeUndefined();
+  });
+
+  it("wraps what is typed and leaves locked widgets alone", () => {
+    load([{ ...widget("a", 0), locked: true }, widget("b", 200)]);
+    useEditor.getState().setRotation(["a", "b"], 270);
+    expect(widgets().find((w) => w.id === "a")?.rotation).toBeUndefined();
+    expect(widgets().find((w) => w.id === "b")?.rotation).toBe(-90);
+  });
+
+  it("records one history entry for a whole drag and none when cancelled", () => {
+    const turn = (deg: number) => {
+      const { doc } = useEditor.getState();
+      useEditor.getState().liveUpdate({ ...doc, widgets: doc.widgets.map((w) => (w.id === "a" ? { ...w, rotation: deg } : w)) });
+    };
+    useEditor.getState().beginGesture();
+    turn(10);
+    turn(40);
+    useEditor.getState().endGesture();
+    expect(useEditor.getState().past).toHaveLength(1);
+    expect(widgets().find((w) => w.id === "a")?.rotation).toBe(40);
+
+    useEditor.getState().beginGesture();
+    turn(90);
+    useEditor.getState().cancelGesture();
+    expect(widgets().find((w) => w.id === "a")?.rotation).toBe(40);
+    expect(useEditor.getState().past).toHaveLength(1);
+    expect(useEditor.getState().gestureStart).toBeNull();
+  });
+
+  it("copies the rotation when duplicating", () => {
+    useEditor.getState().setRotation(["a"], 25);
+    useEditor.getState().duplicateSelected();
+    expect(widgets().filter((w) => w.rotation === 25)).toHaveLength(2);
+  });
+});

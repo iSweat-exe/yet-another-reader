@@ -8,6 +8,7 @@ import {
   classicLayout,
   migrateLayout,
   nearestAnchor,
+  normalizeRotation,
   resolveRect,
   uniqueId,
   withAnchor,
@@ -156,5 +157,44 @@ describe("alignFromAnchor", () => {
     expect(alignFromAnchor("top")).toBe("center");
     expect(alignFromAnchor("left")).toBe("left");
     expect(alignFromAnchor("center")).toBe("center");
+  });
+});
+
+describe("rotation", () => {
+  const doc = (extra: Record<string, unknown>) => ({ version: 2, name: "t", widgets: [{ id: "a", type: "score", anchor: "top-left", x: 0, y: 0, w: 10, h: 10, pages: ["playing"], ...extra }] });
+
+  it("is absent on layouts written before rotation existed", () => {
+    expect(migrateLayout(doc({}))?.widgets[0].rotation).toBeUndefined();
+    expect("rotation" in (migrateLayout(doc({}))?.widgets[0] ?? {})).toBe(false);
+  });
+
+  it("is kept, wrapped to (-180, 180]", () => {
+    expect(migrateLayout(doc({ rotation: 30 }))?.widgets[0].rotation).toBe(30);
+    expect(migrateLayout(doc({ rotation: 270 }))?.widgets[0].rotation).toBe(-90);
+    expect(migrateLayout(doc({ rotation: -190 }))?.widgets[0].rotation).toBe(170);
+    expect(migrateLayout(doc({ rotation: 180 }))?.widgets[0].rotation).toBe(180);
+    expect(migrateLayout(doc({ rotation: 12.3456 }))?.widgets[0].rotation).toBe(12.35);
+  });
+
+  it("drops zero, NaN, infinities and non-numbers", () => {
+    for (const rotation of [0, 360, -0, Number.NaN, Infinity, -Infinity, "45", null, {}, []]) {
+      expect(migrateLayout(doc({ rotation }))?.widgets[0].rotation).toBeUndefined();
+    }
+  });
+
+  it("does not move the rectangle of the widget", () => {
+    const turned = migrateLayout(doc({ rotation: 45, x: 20, y: 30, w: 100, h: 40 }))?.widgets[0];
+    expect(resolveRect(turned as WidgetInstance, 1920, 1080)).toEqual({ left: 20, top: 30, width: 100, height: 40 });
+  });
+
+  it("survives a JSON round trip", () => {
+    const first = migrateLayout(doc({ rotation: -33.5 })) as Layout;
+    expect(migrateLayout(JSON.parse(JSON.stringify(first)))).toEqual(first);
+  });
+
+  it("normalizeRotation is NaN safe", () => {
+    expect(normalizeRotation(Number.NaN)).toBe(0);
+    expect(normalizeRotation(undefined)).toBe(0);
+    expect(normalizeRotation(540)).toBe(180);
   });
 });

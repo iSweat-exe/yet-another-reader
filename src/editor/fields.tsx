@@ -7,7 +7,7 @@ export const controlClass =
 
 export function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return (
-    <section className="border-b border-white/5 px-3 py-3 last:border-b-0">
+    <section className="border-b border-wash/5 px-3 py-3 last:border-b-0">
       <header className="mb-2 flex min-h-6 items-center justify-between gap-2">
         <h3 className="text-xs font-medium text-ink-dim">{title}</h3>
         {aside}
@@ -115,7 +115,7 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className={`relative flex size-[18px] shrink-0 items-center justify-center rounded-sm outline-none transition-[background-color,box-shadow,scale] duration-150 active:scale-[0.92] before:absolute before:-inset-[11px] before:content-[''] focus-visible:shadow-[0_0_0_2px_var(--color-accent)] ${checked ? "bg-accent text-surface" : "bg-surface text-transparent shadow-[0_0_0_1px_oklch(1_0_0/0.22)]"}`}
+      className={`relative flex size-[18px] shrink-0 items-center justify-center rounded-sm outline-none transition-[background-color,box-shadow,scale] duration-150 active:scale-[0.92] before:absolute before:-inset-[11px] before:content-[''] focus-visible:shadow-[0_0_0_2px_var(--color-accent)] ${checked ? "bg-accent text-surface" : "bg-surface text-transparent shadow-[0_0_0_1px_oklch(from_var(--wash)_l_c_h/0.22)]"}`}
     >
       <Icon name="check" size={14} className={`transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-none ${checked ? "scale-100 opacity-100" : "scale-75 opacity-0"}`} />
     </button>
@@ -127,7 +127,7 @@ const buttonBase =
 
 /** Icon-only button; its name is shown as a tooltip and read by screen readers. 40px hit area. */
 export function IconButton({ icon, label, onClick, disabled, active, tone = "default" }: { icon: IconName; label: string; onClick: () => void; disabled?: boolean; active?: boolean; tone?: "default" | "danger" }) {
-  const color = tone === "danger" ? "text-ink-dim hover:bg-red-500/15 hover:text-red-300" : active ? "bg-white/10 text-ink" : "text-ink-dim hover:bg-white/8 hover:text-ink";
+  const color = tone === "danger" ? "text-ink-dim hover:bg-red-500/15 hover:text-red-300" : active ? "bg-wash/10 text-ink" : "text-ink-dim hover:bg-wash/8 hover:text-ink";
   return (
     <button type="button" title={label} aria-label={label} aria-pressed={active} disabled={disabled} onClick={onClick} className={`${buttonBase} size-9 ${color}`}>
       <Icon name={icon} />
@@ -142,7 +142,7 @@ export function ToggleButton({ icon, label, pressed, onChange }: { icon: IconNam
       type="button"
       aria-pressed={pressed}
       onClick={() => onChange(!pressed)}
-      className={`${buttonBase} h-9 gap-1.5 px-2.5 text-xs ${pressed ? "bg-accent/18 text-accent" : "text-ink-dim hover:bg-white/8 hover:text-ink"}`}
+      className={`${buttonBase} h-9 gap-1.5 px-2.5 text-xs ${pressed ? "bg-accent/18 text-accent" : "text-ink-dim hover:bg-wash/8 hover:text-ink"}`}
     >
       <Icon name={icon} />
       {label}
@@ -152,7 +152,7 @@ export function ToggleButton({ icon, label, pressed, onChange }: { icon: IconNam
 
 /** A text button with an optional leading icon, for the toolbar's main actions. */
 export function ActionButton({ icon, children, onClick, variant = "quiet", disabled }: { icon?: IconName; children: ReactNode; onClick: () => void; variant?: "quiet" | "primary"; disabled?: boolean }) {
-  const look = variant === "primary" ? "bg-accent font-semibold text-surface hover:brightness-110" : "text-ink hover:bg-white/8 shadow-[0_0_0_1px_var(--ring-field)]";
+  const look = variant === "primary" ? "bg-accent font-semibold text-surface hover:brightness-110" : "text-ink hover:bg-wash/8 shadow-[0_0_0_1px_var(--ring-field)]";
   return (
     <button type="button" disabled={disabled} onClick={onClick} className={`${buttonBase} h-9 gap-1.5 px-3 text-xs ${look}`}>
       {icon && <Icon name={icon} />}

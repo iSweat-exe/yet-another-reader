@@ -7,6 +7,7 @@
 #![warn(clippy::must_use_candidate)]
 
 mod hub;
+pub mod images;
 mod routes;
 pub mod widgets;
 mod ws;
@@ -82,6 +83,7 @@ pub fn router(hub: Hub, storage_root: Option<PathBuf>, widgets_dir: Option<PathB
         hub,
         storage_root,
         widgets_dir,
+        None,
         Arc::new(watch::channel(false).0),
     )
 }
@@ -91,12 +93,14 @@ fn router_with_shutdown(
     hub: Hub,
     storage_root: Option<PathBuf>,
     widgets_dir: Option<PathBuf>,
+    images_dir: Option<PathBuf>,
     shutdown: Arc<watch::Sender<bool>>,
 ) -> Router {
     let state = AppState {
         hub,
         storage_root: storage_root.map(Arc::new),
         widgets_dir: widgets_dir.clone().map(Arc::new),
+        images_dir: images_dir.map(Arc::new),
         shutdown,
     };
     let mut app = Router::new()
@@ -109,6 +113,7 @@ fn router_with_shutdown(
         .route("/api/v1/screen", get(routes::screen))
         .route("/api/v1/beatmap", get(routes::beatmap))
         .route("/api/v1/difficulty", get(routes::difficulty))
+        .route("/api/v1/difficulty-graph", get(routes::difficulty_graph))
         .route("/api/v1/mods", get(routes::mods))
         .route("/api/v1/time", get(routes::time))
         .route("/api/v1/user", get(routes::user))
@@ -125,6 +130,7 @@ fn router_with_shutdown(
             "/api/v1/assets/audio",
             get(|State(s): State<AppState>, req: Request| routes::asset(Asset::Audio, s, req)),
         )
+        .route("/api/v1/images/{id}", get(routes::image))
         .route("/api/v1/widgets", get(routes::widgets))
         .route("/api/v1/docs", get(routes::docs))
         .route("/api/v1/ws", get(ws::handler))
@@ -170,12 +176,29 @@ pub async fn start(
     storage_root: Option<PathBuf>,
     widgets_dir: Option<PathBuf>,
 ) -> io::Result<RunningServer> {
+    start_with_images(hub, port, storage_root, widgets_dir, None).await
+}
+
+/// Like [`start`], also serving the pictures of `images_dir` (see [`images`]) at `/api/v1/images/{id}`.
+pub async fn start_with_images(
+    hub: Hub,
+    port: u16,
+    storage_root: Option<PathBuf>,
+    widgets_dir: Option<PathBuf>,
+    images_dir: Option<PathBuf>,
+) -> io::Result<RunningServer> {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, port)).await?;
     let addr = listener.local_addr()?;
     let (stop, stopped) = oneshot::channel::<()>();
     let shutdown = Arc::new(watch::channel(false).0);
-    let app = router_with_shutdown(hub, storage_root, widgets_dir, Arc::clone(&shutdown))
-        .layer(middleware::from_fn(require_local_host));
+    let app = router_with_shutdown(
+        hub,
+        storage_root,
+        widgets_dir,
+        images_dir,
+        Arc::clone(&shutdown),
+    )
+    .layer(middleware::from_fn(require_local_host));
     let task = tokio::spawn(async move {
         let served = axum::serve(listener, app)
             .with_graceful_shutdown(async {

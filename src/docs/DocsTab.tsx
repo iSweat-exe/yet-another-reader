@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type MouseEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, lazy, type MouseEvent, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import { useLang, useT } from "../i18n";
 import { ImageViewer, type ViewedImage } from "./ImageViewer";
@@ -6,9 +6,13 @@ import { renderMarkdown } from "./markdown";
 import { DOC_PAGES, DOC_SECTIONS, FIRST_PAGE, type DocPage, docIdOfFile, docPage } from "./pages";
 
 /** The text of a page in the language of the interface. */
+/** The docs are written in French and English: any other language reads the English. */
+const docLang = (lang: string): "fr" | "en" => (lang === "fr" ? "fr" : "en");
 const sourceOf = (page: DocPage, lang: "fr" | "en") => (lang === "en" ? page.sourceEn : page.source);
 import { searchDocs } from "./search";
 import { shotUrl } from "./shots";
+
+const Playground = lazy(() => import("./Playground"));
 
 const STORAGE_KEY = "yar.docs.page";
 
@@ -33,7 +37,7 @@ const renderedPages = new Map<string, ReturnType<typeof renderMarkdown>>();
 /** The documentation: sections and pages on the left, the page in the middle, its outline on the right. */
 export default function DocsTab() {
   const t = useT();
-  const lang = useLang();
+  const lang = docLang(useLang());
   const [pageId, setPageId] = useState(initialPage);
   const [query, setQuery] = useState("");
   const [current, setCurrent] = useState<string | null>(null);
@@ -176,20 +180,20 @@ export default function DocsTab() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-      <nav aria-label={t("tab.docs")} className={`flex flex-col bg-surface-raised md:w-64 md:shrink-0 md:border-r md:border-white/8 ${menuOpen ? "min-h-0 flex-1" : ""}`}>
+      <nav aria-label={t("tab.docs")} data-sfx="sidebar" className={`flex flex-col bg-surface-raised md:w-64 md:shrink-0 md:border-r md:border-wash/8 ${menuOpen ? "min-h-0 flex-1" : ""}`}>
         {/* Narrow window: the page being read, as the button that opens the list of pages. */}
         <button
           type="button"
           aria-expanded={menuOpen}
           aria-controls="docs-pages"
           onClick={() => setMenuOpen(!menuOpen)}
-          className="flex min-h-11 w-full items-center justify-between gap-3 border-b border-white/8 px-4 text-left text-sm font-medium outline-none transition-colors duration-150 hover:bg-white/5 focus-visible:shadow-[inset_0_0_0_2px_var(--color-accent)] md:hidden"
+          className="flex min-h-11 w-full items-center justify-between gap-3 border-b border-wash/8 px-4 text-left text-sm font-medium outline-none transition-colors duration-150 hover:bg-wash/5 focus-visible:shadow-[inset_0_0_0_2px_var(--color-accent)] md:hidden"
         >
           <span className="min-w-0 truncate">
             {section && <span className="font-normal text-ink-dim">{t(section.title)} / </span>}
             {t(page.title)}
           </span>
-          <Icon name="chevron-down" className={`shrink-0 text-ink-dim transition-transform duration-200 ease-out motion-reduce:transition-none ${menuOpen ? "rotate-180" : ""}`} />
+          <Icon name="expand" className="shrink-0 text-ink-dim" />
         </button>
         <div id="docs-pages" className={`min-h-0 flex-1 flex-col ${menuOpen ? "flex" : "hidden md:flex"}`}>
         <div className="p-3 pb-2">
@@ -218,7 +222,7 @@ export default function DocsTab() {
               <ul className="space-y-1">
                 {results.map(({ page: hit, snippet }) => (
                   <li key={hit.id}>
-                    <button type="button" onClick={() => pick(hit.id)} className={`${navItem} flex-col items-start gap-0.5 py-1.5 hover:bg-white/5`}>
+                    <button type="button" onClick={() => pick(hit.id)} className={`${navItem} flex-col items-start gap-0.5 py-1.5 hover:bg-wash/5`}>
                       <span className="font-medium">{t(hit.title)}</span>
                       <span className="line-clamp-2 text-xs text-ink-dim">{snippet}</span>
                     </button>
@@ -241,7 +245,7 @@ export default function DocsTab() {
                           type="button"
                           aria-current={active ? "page" : undefined}
                           onClick={() => pick(p.id)}
-                          className={`${navItem} doc-nav ${active ? "doc-nav-active font-medium text-ink" : "text-ink-dim hover:bg-white/5 hover:text-ink"}`}
+                          className={`${navItem} doc-nav ${active ? "doc-nav-active font-medium text-ink" : "text-ink-dim hover:bg-wash/5 hover:text-ink"}`}
                         >
                           {t(p.title)}
                         </button>
@@ -262,16 +266,22 @@ export default function DocsTab() {
         <div className="mx-auto flex max-w-5xl gap-10 px-4 py-6 md:px-8 md:py-8">
           <article className="min-w-0 max-w-3xl flex-1">
             {/* The pages are bundled with the app (see markdown.ts), so this HTML is trusted. */}
-            <div key={page.id} className="doc" onClick={onContentClick} onKeyDown={onContentKeyDown} dangerouslySetInnerHTML={{ __html: rendered.html }} />
+            {page.custom === "playground" ? (
+              <Suspense fallback={null}>
+                <Playground key={page.id} />
+              </Suspense>
+            ) : (
+              <div key={page.id} className="doc" onClick={onContentClick} onKeyDown={onContentKeyDown} dangerouslySetInnerHTML={{ __html: rendered.html }} />
+            )}
 
-            <footer className="mt-12 grid grid-cols-2 gap-3 border-t border-white/8 pt-6">
+            <footer className="mt-12 grid grid-cols-2 gap-3 border-t border-wash/8 pt-6">
               {[neighbour(-1), neighbour(1)].map((other, i) =>
                 other ? (
                   <button
                     key={other.id}
                     type="button"
                     onClick={() => pick(other.id)}
-                    className={`group flex flex-col rounded-lg px-4 py-3 text-left outline-none transition-colors duration-150 hover:bg-white/5 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] ${i === 1 ? "col-start-2 items-end text-right" : ""}`}
+                    className={`group flex flex-col rounded-lg px-4 py-3 text-left outline-none transition-colors duration-150 hover:bg-wash/5 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] ${i === 1 ? "col-start-2 items-end text-right" : ""}`}
                   >
                     <span className="flex items-center gap-1 text-xs text-ink-dim">
                       {i === 0 && <Icon name="chevron-right" size={14} className="rotate-180" />}
@@ -292,7 +302,7 @@ export default function DocsTab() {
           {outline.length > 1 && (
             <aside className="sticky top-0 hidden max-h-[calc(100vh-8rem)] w-52 shrink-0 self-start overflow-y-auto xl:block">
               <h2 className="mb-2 text-xs font-medium text-ink-dim">{t("docs.onThisPage")}</h2>
-              <ul className="border-l border-white/8">
+              <ul className="border-l border-wash/8">
                 {outline.map((h) => (
                   <li key={h.id}>
                     <button

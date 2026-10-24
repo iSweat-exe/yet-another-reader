@@ -25,6 +25,19 @@ export interface WidgetStyle {
   animate?: boolean;
   /** Length of that animation in milliseconds (default `250`). */
   animationMs?: number;
+  /** Typeface: `default`, a built-in one (`system`, `serif`, `mono`, `rounded`, `condensed`, `handwriting`) or `custom:<id>` of an imported font. */
+  font?: string;
+  /** Weight of all the text of the widget, 100 to 900 (left out: each widget keeps its own). */
+  weight?: number;
+  /** Letter spacing in hundredths of an em, -10 to 50 (default 0). */
+  tracking?: number;
+  /** Shadow behind the text: `auto` (the default legibility shadow), `none`, `soft`, `strong` or `glow`. */
+  shadow?: "auto" | "none" | "soft" | "strong" | "glow";
+  /** Colour of that shadow (the glow takes the text colour when it is left out). */
+  shadowColor?: string;
+  /** Width of the text outline in pixels, 0 to 8 (default 0), and its colour (default black). */
+  outline?: number;
+  outlineColor?: string;
 }
 
 export interface WidgetInstance {
@@ -51,6 +64,12 @@ export interface WidgetInstance {
   y: number;
   w: number;
   h: number;
+  /**
+   * Rotation in degrees, clockwise, around the centre of the widget's rectangle (default 0, left out when 0).
+   * Only the drawing is turned: x/y/w/h, the anchor and the snapping rectangle stay those of the unrotated box.
+   * Normalised to (-180, 180] by {@link normalizeRotation}.
+   */
+  rotation?: number;
   /** Pages of the game this widget is drawn on (see `pages.ts`). */
   pages: Page[];
   style?: WidgetStyle;
@@ -96,6 +115,15 @@ function axisOffset(fraction: number, start: number, size: number, viewSize: num
   if (fraction === 0) return start;
   if (fraction === 1) return viewSize - size - start;
   return start - (viewSize - size) / 2;
+}
+
+/** A rotation in degrees wrapped to (-180, 180], rounded to 0.01; anything that is not a finite number is 0. */
+export function normalizeRotation(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  let a = value % 360;
+  if (a > 180) a -= 360;
+  else if (a <= -180) a += 360;
+  return Math.round(a * 100) / 100 || 0;
 }
 
 /** Where a widget is, in layout pixels, on a screen `viewWidth` x `viewHeight` layout pixels big. */
@@ -191,6 +219,8 @@ function migrateWidget(raw: unknown, index: number): WidgetInstance | null {
   if (isObject(raw.options)) widget.options = raw.options;
   if (typeof raw.name === "string") widget.name = raw.name;
   if (raw.anchorLocked === true) widget.anchorLocked = true;
+  const rotation = normalizeRotation(raw.rotation);
+  if (rotation !== 0) widget.rotation = rotation;
   if (isObject(raw.style)) widget.style = raw.style as WidgetStyle;
   if (raw.locked === true) widget.locked = true;
   if (typeof raw.group === "string" && raw.group) widget.group = raw.group;
@@ -267,8 +297,10 @@ export function classicLayout(name = "default"): Layout {
     { id: "mods", pages: [...PLAY_PAGES], type: "mods", anchor: "top-left", x: 30, y: 144, w: 400, h: 40, style: white },
     { id: "score", pages: [...PLAY_PAGES], type: "score", anchor: "top-right", x: 30, y: 24, w: 500, h: 84, style: white },
     { id: "accuracy", pages: [...PLAY_PAGES], type: "accuracy", anchor: "top-right", x: 30, y: 112, w: 300, h: 48, style: white },
-    { id: "pp", pages: [...PLAY_PAGES], type: "pp", anchor: "top-right", x: 30, y: 160, w: 300, h: 70, style: { color: pink } },
-    { id: "ur", pages: [...PLAY_PAGES], type: "ur", anchor: "top-right", x: 30, y: 236, w: 200, h: 36, style: white },
+    { id: "pp", pages: [...PLAY_PAGES], type: "pp", anchor: "top-right", x: 30, y: 160, w: 300, h: 56, style: { color: pink } },
+    { id: "ppFc", pages: [...PLAY_PAGES], type: "ppFc", anchor: "top-right", x: 30, y: 220, w: 300, h: 30, style: { ...white, opacity: 0.8 } },
+    { id: "ppSs", pages: [...PLAY_PAGES], type: "ppSs", anchor: "top-right", x: 30, y: 254, w: 300, h: 30, style: { ...white, opacity: 0.8 } },
+    { id: "ur", pages: [...PLAY_PAGES], type: "ur", anchor: "top-right", x: 30, y: 290, w: 200, h: 36, style: white },
     { id: "combo", pages: [...PLAY_PAGES], type: "combo", anchor: "bottom-left", x: 30, y: 40, w: 360, h: 110, style: white },
     { id: "hits", pages: [...PLAY_PAGES], type: "hitCounts", anchor: "bottom-right", x: 30, y: 40, w: 400, h: 80, style: white },
     { id: "errors", pages: [...PLAY_PAGES], type: "hitErrors", anchor: "bottom", x: 0, y: 34, w: 500, h: 36, style: white },
@@ -286,9 +318,67 @@ export function minimalLayout(name = "minimal"): Layout {
   ]);
 }
 
+/** The difficulty graph hangs from the top edge (reversed), with the timer, the PP and the map's title under it. */
+export function topGraphLayout(name = "top graph"): Layout {
+  return layoutOf(name, [
+    { id: "graph", pages: [...PLAY_PAGES], type: "difficultyGraph", options: { reverse: true, style: "area", height: 70 }, anchor: "top", x: 0, y: 0, w: 1920, h: 90, style: { color: pink, opacity: 0.9 } },
+    { id: "timer", pages: [...PLAY_PAGES], type: "timer", anchor: "top-left", x: 30, y: 100, w: 200, h: 36, style: white },
+    { id: "pp", pages: [...PLAY_PAGES], type: "pp", anchor: "top-right", x: 30, y: 100, w: 240, h: 46, style: { color: pink } },
+    { id: "map", pages: [...PLAY_PAGES], type: "beatmapInfo", anchor: "bottom-left", x: 30, y: 30, w: 760, h: 80, style: white },
+    { id: "mods", pages: [...PLAY_PAGES], type: "mods", anchor: "bottom-left", x: 30, y: 118, w: 400, h: 40, style: white },
+    { id: "score", pages: [...PLAY_PAGES], type: "score", anchor: "bottom-right", x: 30, y: 70, w: 460, h: 72, style: white },
+    { id: "accuracy", pages: [...PLAY_PAGES], type: "accuracy", anchor: "bottom-right", x: 30, y: 30, w: 260, h: 40, style: white },
+    { id: "combo", pages: [...PLAY_PAGES], type: "combo", anchor: "bottom", x: 0, y: 120, w: 300, h: 100, style: white },
+    { id: "health", pages: [...PLAY_PAGES], type: "health", anchor: "bottom", x: 0, y: 12, w: 900, h: 10, style: { color: "#34d399" } },
+  ]);
+}
+
+/** Streamer layout: the keys at the bottom with their trails, KPS, and the PP split into its four figures. */
+export function inputsLayout(name = "inputs"): Layout {
+  const keys = ["Z", "X"].map((key, i): Placed => ({
+    id: `key-${key.toLowerCase()}`,
+    pages: [...PLAY_PAGES],
+    type: "inputKey",
+    options: { key, trail: true, trailDirection: "up", showCount: true },
+    anchor: "bottom-right",
+    x: 30 + (1 - i) * 112,
+    y: 30,
+    w: 96,
+    h: 300,
+    style: white,
+  }));
+  return layoutOf(name, [
+    ...keys,
+    { id: "kps", pages: [...PLAY_PAGES], type: "kps", anchor: "bottom-right", x: 30, y: 340, w: 208, h: 44, style: white },
+    { id: "score", pages: [...PLAY_PAGES], type: "score", anchor: "top-right", x: 30, y: 24, w: 460, h: 76, style: white },
+    { id: "accuracy", pages: [...PLAY_PAGES], type: "accuracy", anchor: "top-right", x: 30, y: 104, w: 260, h: 44, style: white },
+    { id: "pp", pages: [...PLAY_PAGES], type: "pp", anchor: "top-right", x: 30, y: 152, w: 260, h: 50, style: { color: pink } },
+    { id: "ppFc", pages: [...PLAY_PAGES], type: "ppFc", anchor: "top-right", x: 30, y: 206, w: 260, h: 30, style: { ...white, opacity: 0.8 } },
+    { id: "ppSs", pages: [...PLAY_PAGES], type: "ppSs", anchor: "top-right", x: 30, y: 240, w: 260, h: 30, style: { ...white, opacity: 0.8 } },
+    { id: "ppMax", pages: [...PLAY_PAGES], type: "ppMax", anchor: "top-right", x: 30, y: 274, w: 260, h: 30, style: { ...white, opacity: 0.8 } },
+    { id: "combo", pages: [...PLAY_PAGES], type: "combo", anchor: "bottom-left", x: 30, y: 40, w: 320, h: 100, style: white },
+    { id: "health", pages: [...PLAY_PAGES], type: "health", anchor: "top-left", x: 30, y: 28, w: 620, h: 12, style: { color: "#34d399" } },
+  ]);
+}
+
+/** A thin layout for readability: the progress line and the numbers that matter, nothing else. */
+export function focusLayout(name = "focus"): Layout {
+  return layoutOf(name, [
+    { id: "progress", pages: [...PLAY_PAGES], type: "progress", anchor: "top", x: 0, y: 0, w: 1920, h: 4, style: { color: pink } },
+    { id: "score", pages: [...PLAY_PAGES], type: "score", anchor: "top-left", x: 30, y: 20, w: 360, h: 56, style: white },
+    { id: "pp", pages: [...PLAY_PAGES], type: "pp", anchor: "top-right", x: 30, y: 20, w: 220, h: 44, style: { color: pink } },
+    { id: "accuracy", pages: [...PLAY_PAGES], type: "accuracy", anchor: "top-right", x: 30, y: 70, w: 220, h: 34, style: { ...white, opacity: 0.85 } },
+    { id: "combo", pages: [...PLAY_PAGES], type: "combo", anchor: "bottom-left", x: 30, y: 30, w: 260, h: 80, style: white },
+    { id: "errors", pages: [...PLAY_PAGES], type: "hitErrors", anchor: "bottom", x: 0, y: 24, w: 500, h: 30, style: white },
+  ]);
+}
+
 export const EMPTY_LAYOUT = (name: string): Layout => layoutOf(name, []);
 
-export type PresetId = "classic" | "minimal" | "empty";
+export type PresetId = "classic" | "minimal" | "topGraph" | "inputs" | "focus" | "empty";
+
+/** Every preset the editor offers, in picker order. */
+export const PRESETS: readonly PresetId[] = ["classic", "minimal", "topGraph", "inputs", "focus", "empty"];
 
 export function presetLayout(preset: PresetId, name: string): Layout {
   switch (preset) {
@@ -296,6 +386,12 @@ export function presetLayout(preset: PresetId, name: string): Layout {
       return classicLayout(name);
     case "minimal":
       return minimalLayout(name);
+    case "topGraph":
+      return topGraphLayout(name);
+    case "inputs":
+      return inputsLayout(name);
+    case "focus":
+      return focusLayout(name);
     default:
       return EMPTY_LAYOUT(name);
   }

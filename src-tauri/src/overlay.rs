@@ -40,6 +40,8 @@ pub fn create(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     let window =
         WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html#overlay".into()))
             .title("Yet Another Reader overlay")
+            // No custom WebView2 browser args: every window shares one environment, so args that
+            // differ from the main window's make creation fail (HRESULT 0x8007139F).
             .inner_size(1280.0, 720.0)
             .transparent(true)
             .decorations(false)

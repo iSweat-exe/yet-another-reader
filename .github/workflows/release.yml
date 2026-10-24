@@ -68,6 +68,22 @@ jobs:
 
       - run: npm ci
 
+      # The notes are written BEFORE the build: the build puts them in `latest.json`, which is what the app shows as
+      # "What's new" when it offers the update. They come from the pull requests merged since the last release,
+      # grouped by label (.github/release.yml), and stay editable in the draft.
+      - name: Write the release notes
+        id: notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" -f tag_name="${GITHUB_REF_NAME}" --jq .body | grep -v '^<!--' > notes.md
+          {
+            echo 'body<<RELEASE_NOTES_EOF'
+            cat notes.md
+            echo 'RELEASE_NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build, sign and upload
         id: tauri
         uses: tauri-apps/tauri-action@v0
@@ -80,7 +96,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Yet Another Reader ${{ github.ref_name }}
-          releaseBody: Notes are being generated.
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: true
           # `v1.2.0-rc.1` and the like are pre-releases: they are not what "latest" (so the updater) points to.
           prerelease: ${{ contains(github.ref_name, '-') }}
@@ -89,14 +105,3 @@ jobs:
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: target/release/bundle/nsis/*-setup.exe
-
-      # The notes are written from the pull requests merged since the last release, grouped by label
-      # (.github/release.yml). They stay editable in the draft.
-      - name: Write the release notes
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_ID: ${{ steps.tauri.outputs.releaseId }}
-        run: |
-          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" -f tag_name="${GITHUB_REF_NAME}" --jq .body > notes.md
-          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" -F body=@notes.md > /dev/null

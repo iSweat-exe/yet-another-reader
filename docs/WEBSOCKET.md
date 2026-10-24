@@ -46,7 +46,7 @@ l'état. Tu peux ouvrir l'un, l'autre, ou les deux.
 | `events` | `true` ou `false` | `false` désactive les messages `event` (par défaut : activés) |
 
 Les `topics` valides sont `connected`, `version`, `screen`, `screenType`, `playing`, `ruleset`, `mods`, `beatmap`,
-`difficulty`, `time`, `user` et `gameplay`.
+`difficulty`, `difficultyGraph`, `time`, `user` et `gameplay`.
 
 ```
 ws://127.0.0.1:24051/api/v1/ws?topics=gameplay,time&events=false
@@ -58,7 +58,7 @@ Filtrer réduit le trafic : un overlay de score n'a pas besoin de recevoir la be
 
 | Cas | Réponse |
 | --- | --- |
-| Un topic inconnu (`?topics=beatmap,nope`) | `400`, JSON : `{"error":{"code":"invalidTopic","message":"unknown topic \"nope\"; valid topics: connected, version, screen, screenType, playing, ruleset, mods, beatmap, difficulty, time, user, gameplay"}}` |
+| Un topic inconnu (`?topics=beatmap,nope`) | `400`, JSON : `{"error":{"code":"invalidTopic","message":"unknown topic \"nope\"; valid topics: connected, version, screen, screenType, playing, ruleset, mods, beatmap, difficulty, difficultyGraph, time, user, spectators, spectatorCount, gameplay"}}` |
 | `events` autre que `true` ou `false` (`?events=maybe`) | `400`, texte : `Failed to deserialize query string: events: provided string was not `true` or `false`` |
 | Une requête sans en-tête `Upgrade` (par exemple depuis un navigateur) | `400`, texte : `Connection header did not include 'upgrade'` |
 

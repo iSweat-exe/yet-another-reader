@@ -35,8 +35,9 @@ const ROW_HEIGHT = 40;
 const EXIT_MS = 110;
 const TYPEAHEAD_MS = 600;
 
-function Chevron({ open }: { open: boolean }) {
-  return <Icon name="chevron-down" className={`text-ink-dim transition-transform duration-150 ease-out motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />;
+/** The up-and-down chevrons of a drop-down (symmetric, so open or closed it looks the same: aria-expanded says which). */
+function Chevron() {
+  return <Icon name="expand" className="text-ink-dim" />;
 }
 
 function Check() {
@@ -232,10 +233,10 @@ export function Select<T extends string>({ value, onChange, options, label, size
         disabled={disabled}
         onClick={() => (open ? closeMenu() : openMenu())}
         onKeyDown={onKeyDown}
-        className={`relative inline-flex items-center justify-between gap-2 rounded-lg bg-surface text-left text-sm text-ink shadow-[0_0_0_1px_var(--ring-field)] outline-none transition-[box-shadow,background-color,scale] duration-150 hover:bg-white/5 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] disabled:pointer-events-none disabled:opacity-50 ${open ? "bg-white/5 shadow-[0_0_0_1px_oklch(1_0_0/0.22)]" : ""} ${sizing} ${className || "w-full"}`}
+        className={`relative inline-flex items-center justify-between gap-2 rounded-lg bg-surface text-left text-sm text-ink shadow-[0_0_0_1px_var(--ring-field)] outline-none transition-[box-shadow,background-color,scale] duration-150 hover:bg-wash/5 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] disabled:pointer-events-none disabled:opacity-50 ${open ? "bg-wash/5 shadow-[0_0_0_1px_oklch(from_var(--wash)_l_c_h/0.22)]" : ""} ${sizing} ${className || "w-full"}`}
       >
         <span className="min-w-0 flex-1 truncate">{selected?.label ?? ""}</span>
-        <Chevron open={open} />
+        <Chevron />
       </button>
 
       {mounted &&
@@ -249,7 +250,7 @@ export function Select<T extends string>({ value, onChange, options, label, size
             // Keep focus on the trigger while the pointer moves over the list.
             onMouseDown={(e) => e.preventDefault()}
             style={placement.style}
-            className={`fixed z-[60] flex w-max max-w-[min(420px,calc(100vw-16px))] flex-col gap-px overflow-y-auto rounded-lg bg-menu p-1 shadow-[0_0_0_1px_oklch(1_0_0/0.1),0_12px_32px_oklch(0_0_0/0.5)] transition-[opacity,scale] duration-[110ms] ease-out motion-reduce:transition-none ${placement.up ? (align === "end" ? "origin-bottom-right" : "origin-bottom-left") : align === "end" ? "origin-top-right" : "origin-top-left"} ${shown && open ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"}`}
+            className={`fixed z-[60] flex w-max max-w-[min(420px,calc(100vw-16px))] flex-col gap-px overflow-y-auto rounded-lg bg-menu p-1 shadow-[0_0_0_1px_oklch(from_var(--wash)_l_c_h/0.1),0_12px_32px_oklch(0_0_0/0.5)] transition-[opacity,scale] duration-[110ms] ease-out motion-reduce:transition-none ${placement.up ? (align === "end" ? "origin-bottom-right" : "origin-bottom-left") : align === "end" ? "origin-top-right" : "origin-top-left"} ${shown && open ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"}`}
           >
             {options.map((option, index) => {
               const isSelected = option.value === value;
@@ -267,7 +268,7 @@ export function Select<T extends string>({ value, onChange, options, label, size
                     setActive(index);
                   }}
                   onClick={() => choose(index)}
-                  className={`flex cursor-default items-center justify-between gap-4 rounded-md px-2.5 text-sm select-none ${size === "sm" ? "min-h-9" : "min-h-10"} ${index === active ? "bg-white/10" : ""} ${isSelected ? "font-medium text-ink" : "text-ink/85"} ${option.disabled ? "opacity-40" : ""}`}
+                  className={`flex cursor-default items-center justify-between gap-4 rounded-md px-2.5 text-sm select-none ${size === "sm" ? "min-h-9" : "min-h-10"} ${index === active ? "bg-wash/10" : ""} ${isSelected ? "font-medium text-ink" : "text-ink/85"} ${option.disabled ? "opacity-40" : ""}`}
                 >
                   <span className="truncate">{option.label}</span>
                   {isSelected && <Check />}

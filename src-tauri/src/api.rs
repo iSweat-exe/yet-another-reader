@@ -4,7 +4,7 @@ use std::sync::Mutex;
 
 use overlay_server::{Hub, RunningServer};
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::diag::Diag;
 use crate::settings::Settings;
@@ -56,11 +56,15 @@ impl ApiSupervisor {
             ..ApiStatus::default()
         };
         if settings.api_enabled {
-            match overlay_server::start(
+            match overlay_server::start_with_images(
                 hub.clone(),
                 settings.api_port,
                 lazer_reader::pp::storage_root(),
                 Some(widgets_dir.to_path_buf()),
+                app.path()
+                    .app_config_dir()
+                    .ok()
+                    .map(|dir| crate::images::dir_in(&dir)),
             )
             .await
             {

@@ -120,7 +120,7 @@ that is about 500 reads per second, against about 30 for the state of the play),
 > [!IMPORTANT] Keys are only read **as long as someone listens to them**: a client connected to `/inputs/ws`, a recent request
 > to `/inputs` (for 5 seconds), or a key widget displayed in the overlay. Otherwise, no extra reading is done in the game.
 
-It is the **game's own** input state: a key pressed while another window has the focus is not seen. During a **replay**, the replayed presses (the ones the game shows) appear too: they are derived from the ruleset's actions and your key bindings (Z/X by default). Your own keys are then **ignored** (the game ignores them too), so the two are not mixed. The names are those of
+It is the **game's own** input state: a key pressed while another window has the focus is not seen. During a **replay** or with a mod that plays for you (**AT**, **CN**, **RX**), the replayed presses (the ones the game shows) appear too: they are derived from the ruleset's actions and your key bindings (Z/X by default). Your own keys are then **ignored** (the game ignores them too), so the two are not mixed. Only what the game itself presses is read (the last replay state of its input manager), never your physical keys, **RX** included. With RX, AT and Cinema the game removes the button shortcuts from its container: the keys shown are then those of your last normal play of the same ruleset, otherwise `Z` and `X` for osu!. The names are those of
 osu!framework (`osuTK.Input.Key` and `MouseButton`): letters (`Z`), digits (`Number1`), `Space`, `ShiftLeft`, `ControlLeft`,
 `Escape`, `Tilde`, `Up`, `F1`, `Keypad0`…, and for the mouse `Left`, `Right`, `Middle`, `Button1`, `Button2`.
 

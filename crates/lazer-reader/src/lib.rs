@@ -7,6 +7,7 @@
 
 pub mod error;
 pub mod events;
+pub mod graph;
 pub mod input;
 pub mod metadata;
 pub mod model;

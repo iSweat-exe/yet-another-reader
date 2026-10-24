@@ -68,6 +68,68 @@ export function trailSpans(bars: TrailBar[], now: number, durationMs: number, le
   return bars.map((b) => ({ near: at(b.end ?? now), far: at(b.start) })).filter((s) => s.far > s.near);
 }
 
+const range = (n: number, name: (i: number) => string) => Array.from({ length: n }, (_, i) => name(i));
+
+/** Every key name the reader can report (see `key_name` in `crates/lazer-reader/src/input.rs`), in picker order. */
+export const KEYBOARD_KEYS: readonly string[] = [
+  ...range(26, (i) => String.fromCharCode(65 + i)),
+  ...range(10, (i) => `Number${i}`),
+  "Space",
+  "ShiftLeft",
+  "ShiftRight",
+  "ControlLeft",
+  "ControlRight",
+  "AltLeft",
+  "AltRight",
+  "Tab",
+  "CapsLock",
+  "Enter",
+  "BackSpace",
+  "Escape",
+  "Up",
+  "Down",
+  "Left",
+  "Right",
+  "Comma",
+  "Period",
+  "Slash",
+  "Semicolon",
+  "Quote",
+  "BracketLeft",
+  "BracketRight",
+  "BackSlash",
+  "Minus",
+  "Plus",
+  "Tilde",
+  ...range(24, (i) => `F${i + 1}`),
+  ...range(10, (i) => `Keypad${i}`),
+  "KeypadAdd",
+  "KeypadSubtract",
+  "KeypadMultiply",
+  "KeypadDivide",
+  "KeypadDecimal",
+  "KeypadEnter",
+  "Insert",
+  "Delete",
+  "Home",
+  "End",
+  "PageUp",
+  "PageDown",
+  "WinLeft",
+  "WinRight",
+  "Menu",
+];
+
+/** The mouse buttons the reader can report (`mouse_name`). */
+export const MOUSE_BUTTONS: readonly string[] = ["Left", "Right", "Middle", "Button1", "Button2"];
+
+/** The options of the key picker for a device, labelled like the key caps (the stored value is the reader's name). */
+export function keyChoices(device: InputDevice, current?: unknown): { value: string; label: string }[] {
+  const names = device === "mouse" ? MOUSE_BUTTONS : KEYBOARD_KEYS;
+  const known = typeof current === "string" && current.trim() && !names.includes(current.trim()) ? [current.trim()] : [];
+  return [...names, ...known].map((value) => ({ value, label: keyLabel(device, value) }));
+}
+
 /** What a key cap shows for a key: `ShiftLeft` -> `LShift`, `Number1` -> `1`, mouse `Left` -> `M1`. */
 export function keyLabel(device: InputDevice, key: string): string {
   if (device === "mouse") {

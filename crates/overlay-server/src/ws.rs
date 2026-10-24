@@ -27,8 +27,11 @@ pub const TOPICS: &[&str] = &[
     "mods",
     "beatmap",
     "difficulty",
+    "difficultyGraph",
     "time",
     "user",
+    "spectators",
+    "spectatorCount",
     "gameplay",
 ];
 

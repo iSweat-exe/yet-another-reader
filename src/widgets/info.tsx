@@ -2,7 +2,7 @@ import type { ComponentType } from "react";
 import { Icon } from "../components/Icon";
 import { ModIcon } from "../components/ModIcon";
 import { HitErrorStrip } from "../components/HitErrorStrip";
-import { formatDuration } from "../lib/format";
+import { formatDuration, playSpan } from "../lib/format";
 import { useReaderStore } from "../lib/store";
 import type { Beatmap } from "../lib/types";
 import { AnimatedNumber } from "../overlay/AnimatedNumber";
@@ -135,8 +135,13 @@ const Hp = difficultyStat("HP", (m) => m.hp);
 
 function Timer({ instance }: WidgetProps) {
   // Selecting whole seconds keeps the widget from re-rendering on every clock tick.
-  const current = useReaderStore((s) => Math.floor((s.game.time?.currentMs ?? 0) / 1000) * 1000);
-  const length = useReaderStore((s) => s.game.beatmap?.lengthMs ?? 0);
+  // 0:00 is the first hit object and the end is the last one: the music (intro, skips) is not looked at.
+  const current = useReaderStore((s) => {
+    const span = playSpan(s.game.difficulty, s.game.beatmap?.lengthMs ?? 0);
+    const elapsed = Math.min(Math.max((s.game.time?.currentMs ?? 0) - span.start, 0), span.length);
+    return Math.floor(elapsed / 1000) * 1000;
+  });
+  const length = useReaderStore((s) => playSpan(s.game.difficulty, s.game.beatmap?.lengthMs ?? 0).length);
   return (
     <div className="leading-none whitespace-nowrap tabular-nums" style={{ fontSize: fontSizeFor(instance, 0.7), fontWeight: 700 }}>
       {formatDuration(current)}

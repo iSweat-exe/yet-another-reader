@@ -2,6 +2,7 @@ mod api;
 mod commands;
 mod context;
 mod diag;
+mod images;
 mod layout;
 mod overlay;
 mod reader;
@@ -202,9 +203,14 @@ pub fn run() {
             commands::get_layout,
             commands::save_layout,
             commands::delete_layout,
+            commands::list_layout_versions,
+            commands::get_layout_version,
             commands::list_widgets,
             commands::open_widgets_folder,
             commands::get_widgets_dir,
+            images::import_image,
+            images::list_images,
+            images::delete_image,
             commands::set_input_window
         ])
         .run(tauri::generate_context!())

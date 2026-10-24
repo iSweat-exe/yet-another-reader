@@ -24,6 +24,17 @@ function ppValue(label: string, pick: (pp: { live: number; fc: number; ss: numbe
 const PpFc = ppValue("FC", (pp) => pp.fc);
 const PpSs = ppValue("SS", (pp) => pp.ss);
 
+/** What the whole beatmap is worth as an SS with the active mods: known before the play starts, unlike `PpSs`. */
+function PpMax({ instance }: WidgetProps) {
+  const max = useReaderStore((s) => s.game.difficulty?.pp100 ?? null);
+  return (
+    <Line instance={instance} fraction={0.7}>
+      <AnimatedNumber value={max ?? 0} format={(n) => (max === null ? "—pp" : `${Math.round(n)}pp`)} durationMs={animationMsFor(instance)} />
+      <span style={{ fontSize: "0.55em", opacity: 0.75, marginLeft: "0.4em" }}>MAX</span>
+    </Line>
+  );
+}
+
 const ACCURACIES = [
   ["95%", "pp95"],
   ["98%", "pp98"],
@@ -69,6 +80,7 @@ function PlayStatus({ instance }: WidgetProps) {
 export const LIVE_WIDGETS: WidgetDefinition[] = [
   { type: "ppFc", labelKey: "widget.ppFc", defaultSize: { w: 240, h: 44 }, Component: PpFc },
   { type: "ppSs", labelKey: "widget.ppSs", defaultSize: { w: 240, h: 44 }, Component: PpSs },
+  { type: "ppMax", labelKey: "widget.ppMax", defaultSize: { w: 240, h: 44 }, Component: PpMax },
   { type: "ppTable", labelKey: "widget.ppTable", defaultSize: { w: 420, h: 64 }, Component: PpTable },
   { type: "playStatus", labelKey: "widget.playStatus", defaultSize: { w: 320, h: 56 }, Component: PlayStatus },
 ];

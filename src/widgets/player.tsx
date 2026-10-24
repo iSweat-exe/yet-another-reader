@@ -1,8 +1,11 @@
 import { useState } from "react";
+import { flagUrl, GUEST_AVATAR_URL, UNKNOWN_FLAG_URL } from "../lib/assets";
 import { useReaderStore } from "../lib/store";
 import type { UserStatistics } from "../lib/types";
 import { AnimatedNumber } from "../overlay/AnimatedNumber";
-import { animationMsFor, fontSizeFor, type WidgetDefinition, type WidgetProps } from "./types";
+import { Flag } from "./social";
+import { animationMsFor, fontSizeFor, type BuiltinOption, type WidgetDefinition, type WidgetProps } from "./types";
+import { optionValues } from "./web";
 
 const count = (n: number) => Math.round(n).toLocaleString("en-US");
 
@@ -19,27 +22,28 @@ function Line({ instance, fraction, weight = 700, children }: WidgetProps & { fr
   );
 }
 
+const USERNAME_OPTIONS: BuiltinOption[] = [{ key: "showFlag", type: "boolean", labelKey: "widget.opt.showFlag", default: false }];
+
 function Username({ instance }: WidgetProps) {
   const name = useReaderStore((s) => s.game.user?.username ?? "");
+  const country = useReaderStore((s) => s.game.user?.countryCode ?? "");
+  const showFlag = optionValues({ options: USERNAME_OPTIONS }, instance.options).showFlag === true;
   return (
     <Line instance={instance} fraction={0.8}>
-      <span className="block truncate">{name}</span>
+      <span className="flex items-center gap-[0.35em]">
+        {showFlag && <Flag code={country} height={fontSizeFor(instance, 0.7)} radius={2} />}
+        <span className="block truncate">{name}</span>
+      </span>
     </Line>
   );
 }
 
-function Avatar({ instance }: WidgetProps) {
+function Avatar() {
   const user = useReaderStore((s) => s.game.user);
   const [failed, setFailed] = useState<string | null>(null);
   if (!user) return null;
   const broken = !user.avatarUrl || failed === user.avatarUrl;
-  return broken ? (
-    <div className="flex size-full items-center justify-center rounded-[12%] bg-white/20 font-bold" style={{ fontSize: instance.h * 0.45 }}>
-      {user.username.slice(0, 1).toUpperCase()}
-    </div>
-  ) : (
-    <img src={user.avatarUrl} alt={user.username} draggable={false} onError={() => setFailed(user.avatarUrl)} className="size-full rounded-[12%] object-cover" />
-  );
+  return <img src={broken ? GUEST_AVATAR_URL : user.avatarUrl} alt={user.username} draggable={false} decoding="async" onError={() => setFailed(user.avatarUrl)} className="size-full rounded-[12%] object-cover" />;
 }
 
 function GlobalRank({ instance }: WidgetProps) {
@@ -54,9 +58,13 @@ function GlobalRank({ instance }: WidgetProps) {
 function CountryRank({ instance }: WidgetProps) {
   const rank = useStats()?.countryRank ?? null;
   const country = useReaderStore((s) => s.game.user?.countryCode ?? "");
+  const flag = flagUrl(country);
   return (
     <Line instance={instance} fraction={0.8}>
-      {rank === null ? "—" : <AnimatedNumber value={rank} format={(n) => `${country} #${count(n)}`.trim()} durationMs={animationMsFor(instance)} />}
+      <span className="inline-flex items-center gap-[0.35em]">
+        {rank !== null && <img src={flag} alt="" decoding="async" draggable={false} style={{ height: "0.8em" }} className="w-auto rounded-[2px]" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = UNKNOWN_FLAG_URL; }} />}
+        {rank === null ? "—" : <AnimatedNumber value={rank} format={(n) => `#${count(n)}`} durationMs={animationMsFor(instance)} />}
+      </span>
     </Line>
   );
 }
@@ -90,7 +98,7 @@ function PlayCount({ instance }: WidgetProps) {
 
 export const PLAYER_WIDGETS: WidgetDefinition[] = [
   { type: "avatar", labelKey: "widget.avatar", defaultSize: { w: 96, h: 96 }, Component: Avatar },
-  { type: "username", labelKey: "widget.username", defaultSize: { w: 320, h: 48 }, Component: Username },
+  { type: "username", labelKey: "widget.username", defaultSize: { w: 320, h: 48 }, Component: Username, options: USERNAME_OPTIONS },
   { type: "globalRank", labelKey: "widget.globalRank", defaultSize: { w: 240, h: 44 }, Component: GlobalRank },
   { type: "countryRank", labelKey: "widget.countryRank", defaultSize: { w: 240, h: 44 }, Component: CountryRank },
   { type: "playerPp", labelKey: "widget.playerPp", defaultSize: { w: 240, h: 44 }, Component: PlayerPp },

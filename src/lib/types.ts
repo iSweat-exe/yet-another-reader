@@ -1,3 +1,4 @@
+import type { Lang } from "../i18n/languages";
 /** Mirrors the JSON published by the local API (see docs/DATA_MODEL.md). */
 
 export type Screen =
@@ -75,6 +76,22 @@ export interface Difficulty {
   pp98: number;
   pp99: number;
   pp100: number;
+  /** Song time of the first hit object (ms): where a timer that ignores the intro starts. */
+  firstObjectMs: number;
+  /** Song time of the last hit object (ms): where that timer ends. */
+  lastObjectMs: number;
+}
+
+/** How hard each part of the beatmap is, relative to the rest of the same map (with the selected mods). */
+export interface DifficultyGraph {
+  /** Song time covered by `buckets`, in milliseconds. */
+  durationMs: number;
+  /** The overall difficulty: the star rating with the selected mods. */
+  overall: number;
+  /** Song time of the hardest bucket, in milliseconds. */
+  peakMs: number;
+  /** Strain per bucket, `0` (calmest) to `1` (the hardest section of the map). */
+  buckets: number[];
 }
 
 export interface Time {
@@ -102,6 +119,14 @@ export interface User {
   avatarUrl: string;
   apiState: string;
   statistics: UserStatistics | null;
+}
+
+/** A user spectating the signed-in user (`spectators` of the game state). */
+export interface Spectator {
+  id: number;
+  username: string;
+  /** Avatar address (`https://a.ppy.sh/{id}`, hosted by osu!); absent for an account without one. */
+  avatarUrl?: string;
 }
 
 /** The keys and mouse buttons held down right now, as the game sees them (see `/api/v1/inputs`). */
@@ -153,8 +178,13 @@ export interface GameState {
   difficultyAdjust: DifficultyAdjust | null;
   beatmap: Beatmap | null;
   difficulty: Difficulty | null;
+  /** Strain over the beatmap's length, or `null` while it is computed. */
+  difficultyGraph: DifficultyGraph | null;
   time: Time | null;
   user: User | null;
+  /** Who is spectating the signed-in user right now (capped at 100; `spectatorCount` is not). */
+  spectators: Spectator[];
+  spectatorCount: number;
   gameplay: Gameplay | null;
 }
 
@@ -174,7 +204,7 @@ export interface Settings {
   overlayOnlyWhenFocused: boolean;
   overlayFps: number;
   activeLayout: string;
-  language: "auto" | "fr" | "en";
+  language: "auto" | Lang;
   rtssEnabled: boolean;
   rtssX: number;
   rtssY: number;
@@ -259,8 +289,11 @@ export const EMPTY_GAME_STATE: GameState = {
   difficultyAdjust: null,
   beatmap: null,
   difficulty: null,
+  difficultyGraph: null,
   time: null,
   user: null,
+  spectators: [],
+  spectatorCount: 0,
   gameplay: null,
 };
 
@@ -268,7 +301,8 @@ export const EMPTY_GAME_STATE: GameState = {
 export interface WidgetOption {
   key: string;
   label?: string;
-  type: "string" | "number" | "boolean" | "color" | "select";
+  /** `image` is for built-in widgets only (the id of an imported picture). */
+  type: "string" | "number" | "boolean" | "color" | "select" | "image";
   default?: unknown;
   min?: number;
   max?: number;
@@ -289,4 +323,4 @@ export interface WidgetManifest {
 export const POLL_LIMITS = { min: 8, max: 5000 } as const;
 export const INPUT_POLL_LIMITS = { min: 1, max: 100 } as const;
 export const MIN_PORT = 1024;
-export const FPS_LIMITS = { min: 5, max: 144 } as const;
+export const FPS_LIMITS = { min: 5, max: 360 } as const;

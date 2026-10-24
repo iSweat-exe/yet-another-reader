@@ -38,8 +38,18 @@ A widget that is added goes on the displayed page; its properties let you show i
 - **Selection rectangle**: drag over the empty screen. `Ctrl + A` selects everything.
 - **Drag**: moves the selection. The **handles** of a single widget resize it; `Shift` keeps its proportions.
 - **Snapping**: the widget aligns to the edges and centres of the screen and of the other widgets (guide
-  lines). `Alt` turns it off while dragging. The optional **Grid** (10 px) helps placement.
+  lines). `Alt` turns it off while dragging. The optional **Grid** helps placement: its size is adjustable (2 to 200 px, 10 by default) in the field that appears next to the button.
 - **Arrows**: move by one pixel (`Shift`: 10).
+- **Rotation**: the circle above the frame of a selection turns it around its centre; the widget follows the pointer
+  exactly. `Shift`: 15° steps. **Double-click** the circle: back to 0°. `Escape` during the gesture cancels it. One
+  gesture = one history entry. The **Rotation (°)** field of the inspector (typing, slider, reset button) sets the value
+  of a single widget.
+- A turned widget keeps its handles, which follow its rotation: they move the edge along the widget's own axis and the
+  opposite edge stays fixed. Clicking and the selection rectangle aim at the turned shape.
+- **Multi-selection and groups**: the rotation is rigid. Each widget turns around the centre of the selection (so a
+  group turns as one block): its position orbits that centre and its own angle grows by the same amount.
+- **Snapping and guides**: they work on the bounding box of the turned widget, as you see it. Resizing a turned widget
+  does not snap to guides.
 
 > [!SCREENSHOT] selection-handles
 > A single widget selected on the preview screen: pink frame, eight white handles (corners and mid-points), a pink label
@@ -116,7 +126,8 @@ with the original. A group that no longer contains more than one widget is disso
 | Header | The **Name** shown in the editor, duplicate, delete. |
 | **Placement** | Anchor (3×3), `X`, `Y`, `W`, `H`, **Automatic anchor**. |
 | **Pages** | The pages where the widget is displayed (at least one). |
-| **Style** | Colour, **Text size** (multiplier), **Opacity**, **Text alignment** (auto = follows the anchor), **Animate numbers** and its duration. |
+| **Style** | Colour, **Text size** (multiplier), **Opacity** (a 0 to 100 % slider), **Text alignment** (auto = follows the anchor), **Animate numbers** and its duration. |
+| **Typography** | **Font** (built-in, or imported from a TTF, OTF, WOFF or WOFF2 file), **Weight**, **Letter spacing**, **Shadow** (automatic, none, soft, strong, glow) and **Outline**. For built-in widgets. |
 | **Options** | For a community widget: the options of its manifest. |
 
 > [!SCREENSHOT] properties-panel
@@ -126,7 +137,9 @@ with the original. A group that no longer contains more than one widget is disso
 ## Layers
 
 The layers list the widgets **of the displayed page**, from the front to the back. Each line lets you **move up /
-down** the widget in the stacking order and **lock** it (a locked widget can neither be moved nor deleted).
+down** the widget in the stacking order and **lock** it (a locked widget can neither be moved nor deleted, and can no longer
+be selected by clicking the preview: only here). Drag a line to **reorder** it; `Escape` cancels. A line shows what tells
+two widgets of the same kind apart (the key of a key cap, the words of a text).
 
 > [!SCREENSHOT] layers-panel
 > **Layers** panel of the Playing page: about ten widgets from front to back, one hovered line showing the move up /
@@ -134,7 +147,7 @@ down** the widget in the stacking order and **lock** it (a locked widget can nei
 
 ## Managing several layouts
 
-Create as many named layouts as you like: **New…** (**Classic**, **Minimal** or **Empty** template),
+Create as many named layouts as you like: **New…** (**Classic**, **Minimal**, **Top graph**, **Inputs**, **Focus** or **Empty** template),
 **Duplicate…**, **Rename…**, **Delete**. **Use in game** chooses the one the overlay displays (the **Active in
 game** badge marks the active one).
 
@@ -145,6 +158,12 @@ game** badge marks the active one).
 **Import / export**: **Export…** gives the JSON of the layout (to copy or download); **Import…** accepts pasted
 JSON or a file. This is how you share a layout.
 
+## Saved versions
+
+Auto-save overwrites the file on every change; to go back, the **Saved versions** button (a clock, next to Undo / Redo)
+lists the older versions of the layout, kept before a burst of changes overwrote it (at most one every two minutes, the
+latest 40). Pick one to see it, then **Restore this version**: it is an edit like any other, which `Ctrl + Z` undoes.
+
 ## Saving
 
 With **Auto-save**, each change is saved half a second later and the in-game overlay picks it up live. Without it,
@@ -153,6 +172,13 @@ With **Auto-save**, each change is saved half a second later and the in-game ove
 > [!SCREENSHOT] save-state
 > Two cropped details side by side: at the top right of the top bar, the green "Saved" indicator with its tick; and,
 > next to it, the amber "Unsaved changes" state. Under each, the "Auto-save" switch.
+
+## Command palette
+
+`Ctrl + K` (or the magnifier button) opens the command palette: one search to **add a widget**, **open a layout**,
+change the **theme** or the preview **background**, go to a **page**, or run an action (save, undo, grid, snapping). The
+arrows move through the list, `Enter` runs, `Escape` closes. As you move through the list, the right side shows the
+result: the real widget, the theme's miniature or the background.
 
 ## Preview data
 
@@ -171,7 +197,10 @@ game) or **Live** (the real state of osu!lazer).
 | Arrows (`Shift`: ×10) | Move the selection |
 | `Alt` while dragging | Turn snapping off |
 | `Shift` while resizing | Keep the proportions |
+| `Shift` while rotating | 15° steps |
+| `Escape` during a gesture | Cancel the gesture (move, resize, rotate) |
 | `Ctrl + S` | Save |
+| `Ctrl + K` | Command palette |
 | `Escape` | Deselect |
 
 > [!SCREENSHOT] shortcuts-bar

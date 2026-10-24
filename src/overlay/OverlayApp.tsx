@@ -24,7 +24,7 @@ export default function OverlayApp() {
   useEffect(() => {
     document.documentElement.classList.add("overlay");
     if (!isTauri) return startMock();
-    const ready = connectReaderStore();
+    const ready = connectReaderStore({ lite: true });
     return () => void ready.then((unlisten) => unlisten());
   }, []);
 

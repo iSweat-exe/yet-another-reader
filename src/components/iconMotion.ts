@@ -4,8 +4,11 @@ import type { IconName } from "./Icon";
 
 const OUT = [0.23, 1, 0.32, 1] as const;
 
-/** Plays the gesture of `name` on `svg`; resolves when the icon is back at rest. */
-export async function playGesture(name: IconName, svg: SVGSVGElement, path: SVGPathElement): Promise<void> {
+/**
+ * Plays the gesture of `name` on `svg` (the icon's root: an `<svg>`, or the box of an osu icon, which has no
+ * `path` to draw: it pops in instead); resolves when the icon is back at rest.
+ */
+export async function playGesture(name: IconName, svg: Element, path: SVGPathElement | null): Promise<void> {
   const g = GESTURES[name];
   if (!g) return;
   switch (g.kind) {
@@ -15,7 +18,8 @@ export async function playGesture(name: IconName, svg: SVGSVGElement, path: SVGP
       await animate(svg, { rotate: 0 }, { duration: 0 });
       break;
     case "draw":
-      await animate(path, { pathLength: [0.1, 1] }, { duration: 0.35, ease: OUT });
+      if (path) await animate(path, { pathLength: [0.1, 1] }, { duration: 0.35, ease: OUT });
+      else await animate(svg, { scale: [0.8, 1] }, { duration: 0.3, ease: OUT });
       break;
     case "nudge":
       await animate(svg, { x: [0, g.x, 0], y: [0, g.y, 0] }, { duration: 0.28, ease: "easeOut" });

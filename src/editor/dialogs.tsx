@@ -2,7 +2,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { Icon } from "../components/Icon";
 import { useT } from "../i18n";
 import { Select } from "../components/Select";
-import type { PresetId } from "../overlay/layout";
+import { PRESETS, type PresetId } from "../overlay/layout";
 import { controlClass } from "./fields";
 
 const EXIT_MS = 120;
@@ -13,7 +13,7 @@ const FOCUSABLE = 'button:not(:disabled), [href], input:not(:disabled), textarea
  * control that opened it. Esc, the close button and a click outside leave through a short fade;
  * `guard` keeps a click outside from closing it (something typed in it would be lost).
  */
-export function Modal({ title, onClose, guard, children }: { title: string; onClose: () => void; guard?: boolean; children: ReactNode }) {
+export function Modal({ title, onClose, guard, wide, children }: { title: string; onClose: () => void; guard?: boolean; /** A roomier panel, for a dialog with a list and a preview. */ wide?: boolean; children: ReactNode }) {
   const t = useT();
   const panel = useRef<HTMLDivElement>(null);
   const [closing, setClosing] = useState(false);
@@ -59,7 +59,7 @@ export function Modal({ title, onClose, guard, children }: { title: string; onCl
         aria-modal="true"
         aria-label={title}
         onPointerDown={(e) => e.stopPropagation()}
-        className="modal-panel w-full max-w-md rounded-2xl bg-surface-raised p-5 shadow-[0_0_0_1px_oklch(1_0_0/0.1),0_20px_60px_oklch(0_0_0/0.6)]"
+        className={`modal-panel w-full ${wide ? "max-w-3xl" : "max-w-md"} rounded-2xl bg-surface-raised p-5 shadow-[0_0_0_1px_oklch(from_var(--wash)_l_c_h/0.1),0_20px_60px_oklch(0_0_0/0.6)]`}
       >
         <header className="mb-4 flex items-start justify-between gap-3">
           <h2 className="text-base font-semibold">{title}</h2>
@@ -67,7 +67,7 @@ export function Modal({ title, onClose, guard, children }: { title: string; onCl
             type="button"
             aria-label={t("common.close")}
             onClick={leave}
-            className="-mt-1 -mr-1 flex size-10 items-center justify-center rounded-lg text-ink-dim outline-none transition-[color,background-color,scale] duration-150 hover:bg-white/8 hover:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96]"
+            className="-mt-1 -mr-1 flex size-10 items-center justify-center rounded-lg text-ink-dim outline-none transition-[color,background-color,scale] duration-150 hover:bg-wash/8 hover:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96]"
           >
             <Icon name="close" />
           </button>
@@ -79,7 +79,7 @@ export function Modal({ title, onClose, guard, children }: { title: string; onCl
 }
 
 export const primaryButton = "min-h-10 rounded-lg bg-accent px-4 text-sm font-semibold text-surface outline-none transition-[scale,opacity,box-shadow,filter] duration-150 hover:brightness-110 focus-visible:shadow-[0_0_0_2px_var(--color-surface-raised),0_0_0_4px_var(--color-accent)] active:scale-[0.96] disabled:opacity-40 disabled:hover:brightness-100 disabled:active:scale-100";
-export const quietButton = "min-h-10 rounded-lg px-3 text-sm text-ink-dim outline-none transition-[color,background-color,scale,box-shadow] duration-150 hover:bg-white/8 hover:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96]";
+export const quietButton = "min-h-10 rounded-lg px-3 text-sm text-ink-dim outline-none transition-[color,background-color,scale,box-shadow] duration-150 hover:bg-wash/8 hover:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96]";
 
 /** Maps an error from the store (`Error: nameTaken`, ...) to a translated message. */
 export function useErrorText(): (message: string | null) => string | null {
@@ -138,11 +138,7 @@ export function NameDialog({ title, initial, confirmLabel, templates, onSubmit, 
               label={t("editor.template")}
               value={preset}
               onChange={setPreset}
-              options={[
-                { value: "classic", label: t("editor.preset.classic") },
-                { value: "minimal", label: t("editor.preset.minimal") },
-                { value: "empty", label: t("editor.preset.empty") },
-              ]}
+              options={PRESETS.map((p) => ({ value: p, label: t(`editor.preset.${p}`) }))}
             />
           </div>
         )}

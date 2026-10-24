@@ -60,14 +60,9 @@ function Ur({ instance }: WidgetProps) {
 function Pp({ instance }: WidgetProps) {
   const pp = useReaderStore((s) => s.game.gameplay?.pp ?? null);
   return (
-    <div className="leading-none whitespace-nowrap tabular-nums">
-      <div style={{ fontSize: fontSizeFor(instance, 0.6), fontWeight: 700 }}>
-        <AnimatedNumber value={pp?.live ?? 0} format={(n) => (pp ? `${Math.round(n)}pp` : "—pp")} durationMs={animationMsFor(instance)} />
-      </div>
-      <div style={{ fontSize: fontSizeFor(instance, 0.3), opacity: 0.75, marginTop: instance.h * 0.06 }}>
-        FC {pp ? Math.round(pp.fc) : "—"}pp · SS {pp ? Math.round(pp.ss) : "—"}pp
-      </div>
-    </div>
+    <Text instance={instance} fraction={0.7} weight={700}>
+      <AnimatedNumber value={pp?.live ?? 0} format={(n) => (pp ? `${Math.round(n)}pp` : "—pp")} durationMs={animationMsFor(instance)} />
+    </Text>
   );
 }
 

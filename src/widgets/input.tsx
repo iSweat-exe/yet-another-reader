@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { type InputDevice, type TrailBar, inputId, keyLabel, pressRate, trailSpans, updateTrail } from "../lib/inputs";
+import { type InputDevice, type TrailBar, inputId, keyChoices, keyLabel, pressRate, trailSpans, updateTrail } from "../lib/inputs";
 import { useReaderStore } from "../lib/store";
 import { subscribeTicker } from "../overlay/ticker";
 import { optionValues } from "./web";
@@ -12,8 +12,17 @@ const KEY_OPTIONS: BuiltinOption[] = [
     labelKey: "widget.opt.device",
     default: "keyboard",
     choices: [{ value: "keyboard" }, { value: "mouse" }],
+    // The key of one device means nothing on the other: start from that device's first button.
+    alsoSet: (device) => ({ key: device === "mouse" ? "Left" : "Z" }),
   },
-  { key: "key", type: "string", labelKey: "widget.opt.key", default: "Z" },
+  {
+    key: "key",
+    type: "select",
+    labelKey: "widget.opt.key",
+    default: "Z",
+    // Labelled by `keyLabel`, not by translations: the list depends on the device.
+    choicesFor: (values) => keyChoices(values.device === "mouse" ? "mouse" : "keyboard", values.key),
+  },
   { key: "label", type: "string", labelKey: "widget.opt.label", default: "" },
   { key: "showCount", type: "boolean", labelKey: "widget.opt.showCount", default: false },
   { key: "pressedColor", type: "color", labelKey: "widget.opt.pressedColor", default: "#f472b6" },
@@ -162,15 +171,18 @@ function InputKey({ instance }: WidgetProps) {
 /** Key presses per second over the last second, from every key and mouse button. */
 function Kps({ instance }: WidgetProps) {
   const stats = useReaderStore((s) => s.inputStats);
-  const [now, setNow] = useState(() => performance.now());
-  // The rate falls back to zero when nothing is pressed, so it must be re-evaluated on a clock.
+  const latest = useRef(stats);
+  latest.current = stats;
+  // The rate falls back to zero when nothing is pressed, so it is re-evaluated on a clock; only
+  // a change of the displayed integer renders (an idle widget costs nothing).
+  const [rate, setRate] = useState(() => Math.round(pressRate(stats, performance.now())));
   useEffect(() => {
-    const id = setInterval(() => setNow(performance.now()), 100);
+    const id = setInterval(() => setRate(Math.round(pressRate(latest.current, performance.now()))), 100);
     return () => clearInterval(id);
   }, []);
   return (
     <div className="leading-none whitespace-nowrap tabular-nums" style={{ fontSize: fontSizeFor(instance, 0.7), fontWeight: 700 }}>
-      {pressRate(stats, now).toFixed(0)}
+      {rate}
       <span style={{ fontSize: "0.55em", opacity: 0.75 }}> KPS</span>
     </div>
   );

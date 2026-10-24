@@ -12,7 +12,8 @@ back to the values in effect). They are saved to `settings.json` and applied imm
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| **Language** | System | Interface language: *System*, *Français* or *English*. The documentation is written in French. |
+| **Language** | System | Interface language: *System* (the first language of your system that the app knows), *English*, *Français*, *Español*, *Deutsch*, *Português*, *Русский*, *简体中文*, *한국어* or *日本語*. The documentation only exists in French and English: the other languages read the English one. |
+| **Theme** | Graphite | The look of the app: *Graphite* (the original), *Midnight*, *Paper* (light), *Terminal*, *Sakura*, *Ember*, *Monochrome*, *Synthwave*, *Game Boy*, *Blueprint*, *Newsprint*, *Amber CRT*, *Nord*, *Cyber* and *Matcha*. It applies at once, without "Apply", and does not change the in-game overlay. |
 
 ## Updates
 
@@ -78,7 +79,7 @@ an [API](API.md#real-time-inputs) client. Without this, no extra reading is done
 | --- | --- | --- |
 | **In-game overlay** | enabled | Shows or hides the overlay (shortcut `Ctrl + Shift + O`). |
 | **Test the overlay** | — | Displays fake data over osu! for 8 seconds, to judge the rendering without playing. |
-| **Overlay refresh rate** | `30` fps (5–144) | Drawing rate of the overlay and of its animations. Lower = less load on the game. |
+| **Overlay refresh rate** | `30` fps (5–360) | Drawing rate of the overlay and of its animations. Lower = less load on the game. |
 | **Only when osu! is in the foreground** | enabled | The overlay disappears when you switch to another window. |
 
 See [In-game overlay](OVERLAY.md) for performance and fullscreen.

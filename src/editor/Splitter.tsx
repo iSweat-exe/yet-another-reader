@@ -112,7 +112,7 @@ export function Splitter({ axis, value, min, max, onChange, onReset, label, grow
       onPointerDown={onPointerDown}
       onDoubleClick={onReset}
       onKeyDown={onKeyDown}
-      className={`group relative shrink-0 touch-none outline-none ${horizontal ? "w-px cursor-col-resize bg-white/8" : "h-px cursor-row-resize bg-white/8"}`}
+      className={`group relative shrink-0 touch-none outline-none ${horizontal ? "w-px cursor-col-resize bg-wash/8" : "h-px cursor-row-resize bg-wash/8"}`}
     >
       {/* Wider invisible hit area; the visible line stays one pixel. */}
       <span aria-hidden className={`absolute ${horizontal ? "-inset-x-1.5 inset-y-0" : "-inset-y-1.5 inset-x-0"}`} />

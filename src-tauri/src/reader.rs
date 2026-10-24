@@ -21,6 +21,11 @@ const RETRY_INTERVAL: Duration = Duration::from_secs(2);
 /// this many failures in a row is the session dropped; reconnecting rescans the game's whole
 /// memory, which is far more disruptive than skipping a few frames.
 const MAX_CONSECUTIVE_FAILURES: u32 = 90;
+/// Outside a play, with nobody subscribed to the state over the API, the game is sampled no faster
+/// than this: menus have nothing that moves faster, and the reader should cost the game nothing there.
+const IDLE_POLL_FLOOR_MS: u64 = 100;
+/// Likewise the keys are sampled no faster than this outside a play (the keyboard widget in a menu).
+const IDLE_INPUT_FLOOR_MS: u64 = 8;
 /// The webview windows do not need a refresh faster than this unless a play is running.
 const IDLE_UI_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -99,8 +104,8 @@ fn poll(ctx: &ReaderContext, session: &mut LazerSession, meter: &mut Meter) -> R
     let mut ui = UiEmitter::default();
     let mut failures = 0u32;
     let mut next_snapshot = Instant::now();
-    let mut reading_inputs = false;
-    let mut inputs_failing = false;
+    let mut inputs = InputLoop::default();
+    let mut in_play = false;
     let result = loop {
         if Instant::now() >= next_snapshot {
             let started = Instant::now();
@@ -116,6 +121,7 @@ fn poll(ctx: &ReaderContext, session: &mut LazerSession, meter: &mut Meter) -> R
                         );
                     }
                     failures = 0;
+                    in_play = state.gameplay.is_some();
                     if last.as_ref() != Some(&state) {
                         for change in describe_changes(last.as_ref(), &state) {
                             ctx.diag.info(&ctx.app, "game", change);
@@ -141,15 +147,41 @@ fn poll(ctx: &ReaderContext, session: &mut LazerSession, meter: &mut Meter) -> R
                     }
                 }
             }
-            next_snapshot =
-                Instant::now() + Duration::from_millis(ctx.poll_ms.load(Ordering::Relaxed));
+            next_snapshot = Instant::now() + snapshot_interval(ctx, in_play);
         }
 
         ui.flush(&ctx.app, ctx.overlay_fps.load(Ordering::Relaxed));
 
+        let wanted = inputs.step(ctx, session, meter);
+        meter.tick(ctx, wanted);
+
+        let until_snapshot = next_snapshot.saturating_duration_since(Instant::now());
+        let nap = if wanted {
+            until_snapshot.min(input_interval(ctx, in_play))
+        } else {
+            until_snapshot
+        };
+        thread::sleep(nap);
+    };
+    inputs.stop(ctx);
+    result
+}
+
+/// The fine-grained reading of held keys and mouse buttons, which runs only while something listens to it.
+#[derive(Default)]
+struct InputLoop {
+    reading: bool,
+    /// The last read failed (logged once, not on every tick).
+    failing: bool,
+}
+
+impl InputLoop {
+    /// One tick: reads and publishes the inputs if anyone wants them, and stops reading when nobody does.
+    /// Returns whether they are wanted (the loop then sleeps for less).
+    fn step(&mut self, ctx: &ReaderContext, session: &mut LazerSession, meter: &mut Meter) -> bool {
         let wanted = ctx.hub.inputs_wanted();
         if wanted {
-            if !reading_inputs {
+            if !self.reading {
                 fine_timer(true);
                 ctx.diag.info(
                     &ctx.app,
@@ -161,46 +193,60 @@ fn poll(ctx: &ReaderContext, session: &mut LazerSession, meter: &mut Meter) -> R
             match session.read_inputs() {
                 Ok(inputs) => {
                     meter.input_read(started.elapsed());
-                    if inputs_failing {
+                    if self.failing {
                         ctx.diag.info(&ctx.app, "inputs", "key reads work again");
-                        inputs_failing = false;
+                        self.failing = false;
                     }
-                    publish_inputs(ctx, inputs);
+                    publish_inputs(ctx, &inputs);
                 }
-                Err(e) if !inputs_failing => {
-                    inputs_failing = true;
+                Err(e) if !self.failing => {
+                    self.failing = true;
                     ctx.diag
                         .warn(&ctx.app, "inputs", format!("cannot read the keys: {e}"));
                 }
                 Err(_) => {}
             }
-        } else if reading_inputs {
-            fine_timer(false);
-            publish_inputs(ctx, InputState::default());
+        } else if self.reading {
+            self.stop(ctx);
             ctx.diag.info(
                 &ctx.app,
                 "inputs",
                 "reading keys stopped (nobody looks at them)",
             );
         }
-        reading_inputs = wanted;
-        meter.tick(ctx, wanted);
-
-        let until_snapshot = next_snapshot.saturating_duration_since(Instant::now());
-        let nap = if wanted {
-            until_snapshot.min(Duration::from_millis(
-                ctx.input_ms.load(Ordering::Relaxed).max(1),
-            ))
-        } else {
-            until_snapshot
-        };
-        thread::sleep(nap);
-    };
-    if reading_inputs {
-        fine_timer(false);
+        self.reading = wanted;
+        wanted
     }
-    publish_inputs(ctx, InputState::default());
-    result
+
+    /// Stops reading: the fine timer goes back and the published keys are cleared.
+    fn stop(&mut self, ctx: &ReaderContext) {
+        if self.reading {
+            fine_timer(false);
+        }
+        self.reading = false;
+        publish_inputs(ctx, &InputState::default());
+    }
+}
+
+/// Time between two snapshots: the configured one, stretched in a menu when no API client watches.
+fn snapshot_interval(ctx: &ReaderContext, in_play: bool) -> Duration {
+    let ms = ctx.poll_ms.load(Ordering::Relaxed).max(1);
+    let relaxed = !in_play && ctx.hub.state_clients() == 0;
+    Duration::from_millis(if relaxed {
+        ms.max(IDLE_POLL_FLOOR_MS)
+    } else {
+        ms
+    })
+}
+
+/// Time between two key reads: the configured one, stretched outside a play.
+fn input_interval(ctx: &ReaderContext, in_play: bool) -> Duration {
+    let ms = ctx.input_ms.load(Ordering::Relaxed).max(1);
+    Duration::from_millis(if in_play {
+        ms
+    } else {
+        ms.max(IDLE_INPUT_FLOOR_MS)
+    })
 }
 
 /// Who asked for the keys, as a short phrase (`overlay window, 1 WebSocket`).
@@ -368,10 +414,10 @@ impl Meter {
 }
 
 /// Publishes the held inputs to the API and to the windows that asked for them (on change only).
-fn publish_inputs(ctx: &ReaderContext, inputs: InputState) {
-    if ctx.hub.publish_inputs(inputs.clone()) {
+fn publish_inputs(ctx: &ReaderContext, inputs: &InputState) {
+    if ctx.hub.publish_inputs(inputs) {
         for label in ctx.hub.input_windows() {
-            let _ = ctx.app.emit_to(label.as_str(), EVENT_INPUT_STATE, &inputs);
+            let _ = ctx.app.emit_to(label.as_str(), EVENT_INPUT_STATE, inputs);
         }
     }
 }

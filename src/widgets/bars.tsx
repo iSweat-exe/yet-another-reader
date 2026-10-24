@@ -1,3 +1,4 @@
+import { playSpan } from "../lib/format";
 import { useReaderStore } from "../lib/store";
 import { prefersReducedMotion } from "./shared";
 import { animationMsFor, type WidgetDefinition, type WidgetProps } from "./types";
@@ -36,8 +37,8 @@ function Health({ instance }: WidgetProps) {
 
 function Progress({ instance }: WidgetProps) {
   const ratio = useReaderStore((s) => {
-    const length = s.game.beatmap?.lengthMs ?? 0;
-    return length > 0 ? (s.game.time?.currentMs ?? 0) / length : 0;
+    const span = playSpan(s.game.difficulty, s.game.beatmap?.lengthMs ?? 0);
+    return span.length > 0 ? ((s.game.time?.currentMs ?? 0) - span.start) / span.length : 0;
   });
   // The song position moves at a constant rate: a linear glide just fills the gap between two updates.
   return <Bar instance={instance} ratio={ratio} transitionMs={animationMsFor(instance) > 0 && !prefersReducedMotion() ? 120 : 0} easing="linear" />;

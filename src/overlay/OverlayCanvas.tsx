@@ -1,4 +1,6 @@
 import { memo, useEffect, useState } from "react";
+import { useCustomFont } from "../lib/fonts";
+import { textLook } from "./textStyle";
 import { useReaderStore } from "../lib/store";
 import { widgetDefinition } from "../widgets/registry";
 import { WebWidget } from "./WebWidget";
@@ -32,6 +34,8 @@ const PlacedWidget = memo(function PlacedWidget({ instance, viewWidth, viewHeigh
   });
   // Page switches fade the widget instead of cutting it (the editor always shows everything).
   const { mounted, shown } = usePresence(visible);
+  const look = textLook(instance.style);
+  useCustomFont(instance.style?.font);
   if (!mounted) return null;
 
   const definition = instance.type === "web" ? undefined : widgetDefinition(instance.type);
@@ -42,17 +46,21 @@ const PlacedWidget = memo(function PlacedWidget({ instance, viewWidth, viewHeigh
   return (
     <div
       className="absolute"
+      data-weight={look.weight}
       style={{
+        ...(look.weight ? ({ "--widget-weight": look.weight } as React.CSSProperties) : null),
         left: rect.left,
         top: rect.top,
         width: rect.width,
         height: rect.height,
         color: style?.color ?? "#ffffff",
+        // Turned around its centre by the compositor only (transform): no re-layout, same in the overlay and the editor.
+        transform: instance.rotation ? `rotate(${instance.rotation}deg)` : undefined,
         opacity: shown ? (style?.opacity ?? 1) : 0,
         transition: ignoreVisibility ? undefined : "opacity 150ms ease-out",
         textAlign: style?.align ?? alignFromAnchor(instance.anchor),
         // Keeps text legible over any game background.
-        textShadow: "0 0 2px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.85)",
+        ...look.css,
       }}
     >
       {definition ? <definition.Component instance={instance} /> : <WebWidget instance={instance} />}

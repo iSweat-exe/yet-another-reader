@@ -22,8 +22,11 @@ Les conventions communes (`camelCase`, `null`, unités) sont dans le [guide](API
 | `difficultyAdjust` | `DifficultyAdjust` \| null | Valeurs forcées par Difficulty Adjust : `cs`, `ar`, `od`, `hp` (`null` pour une stat laissée telle quelle). `null` sans ce mod. |
 | `beatmap` | `Beatmap` \| null | Beatmap sélectionnée. |
 | `difficulty` | `Difficulty` \| null | Étoiles et PP avec les mods. |
+| `difficultyGraph` | `DifficultyGraph` \| null | La difficulté de la map tout au long de la chanson, avec les mods. `null` le temps du calcul (une fraction de seconde après le choix de la map) ou si le fichier `.osu` est introuvable. |
 | `time` | `Time` \| null | Horloge de la chanson. |
 | `user` | `User` \| null | Utilisateur connecté. |
+| `spectators` | `Spectator[]` | Les utilisateurs qui regardent la partie du joueur connecté (100 au plus). Vide si personne ne regarde. |
+| `spectatorCount` | int | Nombre de spectateurs (non plafonné). |
 | `gameplay` | `Gameplay` \| null | Partie en cours. |
 
 **`Screen`** : `unknown` · `menu` · `songSelect` · `playing` · `results` · `editor` ·
@@ -85,6 +88,23 @@ mods actifs**.
 | `stars` | number | Étoiles avec les mods. |
 | `maxCombo` | int | Combo maximum. |
 | `pp95`, `pp98`, `pp99`, `pp100` | number | PP pour une précision de 95 / 98 / 99 / 100 %. |
+| `firstObjectMs` | number | Temps (ms, dans la chanson) du premier hit object : le « 0:00 » d'un chrono qui ignore l'intro. |
+| `lastObjectMs` | number | Temps (ms) du dernier hit object : la fin de ce chrono (l'outro n'est pas comptée). |
+
+## `DifficultyGraph`
+
+La difficulté de chaque partie de la beatmap, **relative au reste de la même map** : sert à tracer une frise (barres basses =
+passages calmes, barres hautes = passages denses). Calculée une seule fois par beatmap, mods et vitesse (hors du thread de
+lecture), à partir des objets du fichier `.osu` : un « effort » qui monte avec la vitesse de frappe et la distance entre
+les objets, et retombe pendant les pauses. Les mods qui changent la vitesse (DT, HT, vitesse réglée) ou la taille des cercles
+(HR, EZ, Difficulty Adjust) sont pris en compte.
+
+| Champ | Type | Description |
+| --- | --- | --- |
+| `durationMs` | number | Durée de chanson couverte par `buckets`, en millisecondes : le bucket `i` commence à `i × durationMs / buckets.length`. |
+| `overall` | number | La **difficulté globale** : les étoiles avec les mods (même valeur que `difficulty.stars`). |
+| `peakMs` | number | Moment de la chanson, en millisecondes, du passage le plus dur. |
+| `buckets` | number[] | 120 valeurs de `0` (le passage le plus calme) à `1` (le plus dur de **cette** map), arrondies à 3 décimales. Deux maps ne se comparent pas bucket à bucket : utilise `overall` pour cela. |
 
 ## `Time`
 
@@ -112,6 +132,17 @@ Pour une barre de progression : `currentMs / beatmap.lengthMs` (borné à `0..1`
 
 > Ces champs identifient l'utilisateur. L'API n'est accessible que depuis cette machine, mais
 > évite de les afficher à l'écran si tu partages ton stream sans le vouloir.
+
+## `Spectator`
+
+Un élément de `spectators` : un utilisateur qui regarde la partie du joueur connecté (lu dans le client de
+spectateur d'osu!lazer ; la liste est vide hors connexion ou si personne ne regarde).
+
+| Champ | Type | Description |
+| --- | --- | --- |
+| `id` | int | Id osu!. |
+| `username` | string | Pseudo. |
+| `avatarUrl` | string (optionnel) | `https://a.ppy.sh/{id}` ; absent sans compte valide. Charger cette adresse est un accès Internet. |
 
 ## `Gameplay`
 

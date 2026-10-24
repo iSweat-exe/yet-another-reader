@@ -1,8 +1,18 @@
-import { setGame, setInput, useReaderStore } from "./store";
+import { freezeLiveFeed, setGame, setInput, useReaderStore } from "./store";
 import { EMPTY_GAME_STATE, type GameState, type LogLine, type ReaderDiag } from "./types";
 
 /** True when running inside the Tauri webview (false in a plain browser, e.g. for design previews). */
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+const MOCK_SPECTATORS: GameState["spectators"] = [
+  [2, "peppy"],
+  [124493, "Cookiezi"],
+  [4787150, "mrekk"],
+  [7562902, "Vaxei"],
+  [2558286, "WhiteCat"],
+  [9269034, "rafis"],
+  [6447454, "Accolibed"],
+].map(([id, username]) => ({ id: id as number, username: username as string, avatarUrl: `https://a.ppy.sh/${id}` }));
 
 const BEATMAP: NonNullable<GameState["beatmap"]> = {
   title: "If U Think Im Pretty (r0pss Hardtekk)",
@@ -37,6 +47,17 @@ const BEATMAP: NonNullable<GameState["beatmap"]> = {
 };
 
 /** Fake live data, so widgets can be designed without osu!lazer running. */
+/** A made-up strain curve: calm intro, a stream section, a break, a harder finish (computed once). */
+const MOCK_GRAPH: NonNullable<GameState["difficultyGraph"]> = (() => {
+  const buckets = Array.from({ length: 120 }, (_, i) => {
+    const x = i / 120;
+    const v = x < 0.15 ? 0.15 + x : x < 0.45 ? 0.55 + 0.25 * Math.abs(Math.sin(x * 40)) : x < 0.55 ? 0.12 : 0.6 + 0.4 * ((x - 0.55) / 0.45) * (0.7 + 0.3 * Math.abs(Math.sin(x * 60)));
+    return Math.round(Math.min(Math.max(v, 0), 1) * 1000) / 1000;
+  });
+  const peak = buckets.indexOf(Math.max(...buckets));
+  return { durationMs: BEATMAP.lengthMs, overall: 7.4, peakMs: (peak + 0.5) * (BEATMAP.lengthMs / 120), buckets };
+})();
+
 export function mockState(t: number): GameState {
   const hit = Math.max(0, Math.floor(t * 4));
   const errors = Array.from({ length: 48 }, (_, i) => Math.sin((hit - i) * 1.7) * 28 + Math.cos((hit - i) * 0.6) * 9);
@@ -61,7 +82,10 @@ export function mockState(t: number): GameState {
       apiState: "online",
       statistics: { globalRank: 12873, countryRank: 412, pp: 5234, accuracy: 98.12, playCount: 24511, totalHits: 4200000, maxCombo: 2210, rankedScore: 9000000000, totalScore: 21000000000 },
     },
-    difficulty: { stars: 7.4, maxCombo: 458, pp95: 250, pp98: 290, pp99: 310, pp100: 340 },
+    spectators: MOCK_SPECTATORS,
+    spectatorCount: MOCK_SPECTATORS.length,
+    difficulty: { stars: 7.4, maxCombo: 458, pp95: 250, pp98: 290, pp99: 310, pp100: 340, firstObjectMs: 3200, lastObjectMs: 176400 },
+    difficultyGraph: MOCK_GRAPH,
     time: { currentMs: (t * 1000) % BEATMAP.lengthMs, running: true, source: "gameplay" },
     gameplay: {
       score: 1_204_331 + hit * 311,
@@ -94,6 +118,8 @@ export function mockInput(t: number) {
 
 /** Feeds only the game state with animated fake data (the editor's preview); returns a stop function. */
 export function startGameMock(): () => void {
+  // The real game keeps playing behind the preview: its updates wait until the simulation stops.
+  freezeLiveFeed(true);
   const started = performance.now();
   const apply = () => {
     const t = (performance.now() - started) / 1000;
@@ -102,7 +128,10 @@ export function startGameMock(): () => void {
   };
   apply();
   const id = setInterval(apply, 50);
-  return () => clearInterval(id);
+  return () => {
+    clearInterval(id);
+    freezeLiveFeed(false);
+  };
 }
 
 /** Feeds the store with animated fake data; returns a function that stops it. */

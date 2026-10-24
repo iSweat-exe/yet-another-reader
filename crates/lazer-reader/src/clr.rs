@@ -52,6 +52,8 @@ pub struct Clr {
     mt_cache: RefCell<HashMap<u64, Option<MtInfo>>>,
     metadata_cache: RefCell<HashMap<u64, Rc<Metadata>>>,
     layout_cache: RefCell<HashMap<u64, Rc<HashMap<String, Field>>>>,
+    /// Type names by method table: asking the DAC is a costly call and the answer never changes.
+    name_cache: RefCell<HashMap<u64, Rc<str>>>,
 }
 
 impl Clr {
@@ -67,6 +69,7 @@ impl Clr {
             mt_cache: RefCell::default(),
             metadata_cache: RefCell::default(),
             layout_cache: RefCell::default(),
+            name_cache: RefCell::default(),
         })
     }
 
@@ -275,9 +278,16 @@ impl Clr {
     }
 
     pub fn type_name(&self, mt: u64) -> String {
-        self.dac
-            .method_table_name(mt)
-            .unwrap_or_else(|| format!("<mt {mt:#x}>"))
+        if let Some(name) = self.name_cache.borrow().get(&mt) {
+            return name.to_string();
+        }
+        match self.dac.method_table_name(mt) {
+            Some(name) => {
+                self.name_cache.borrow_mut().insert(mt, Rc::from(&*name));
+                name
+            }
+            None => format!("<mt {mt:#x}>"),
+        }
     }
 
     /// Contents of a `System.String` object (length-prefixed UTF-16).

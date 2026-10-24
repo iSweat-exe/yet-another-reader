@@ -77,7 +77,10 @@ struct DataTarget {
     process: Arc<Process>,
 }
 
-#[allow(non_snake_case)]
+#[allow(
+    non_snake_case,
+    reason = "COM method names must match the C++ interface"
+)]
 impl ICLRDataTarget_Impl for DataTarget_Impl {
     unsafe fn GetMachineType(&self, machine_type: *mut u32) -> HRESULT {
         // SAFETY: the DAC passes a valid out pointer.

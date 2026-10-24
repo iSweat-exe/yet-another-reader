@@ -2698,6 +2698,7 @@ dependencies = [
  "lazer-reader",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
  "tower",
  "tower-http 0.7.1",

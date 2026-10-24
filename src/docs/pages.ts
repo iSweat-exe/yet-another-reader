@@ -28,6 +28,8 @@ export interface DocPage {
   source: string;
   /** The English text, same structure and examples. */
   sourceEn: string;
+  /** A page drawn by the app instead of rendered from Markdown (the API playground). */
+  custom?: "playground";
 }
 
 export interface DocSection {
@@ -75,6 +77,7 @@ export const DOC_SECTIONS: readonly DocSection[] = [
       { id: "api", file: "API.md", title: "docs.page.api", source: api, sourceEn: english("API.md") },
       { id: "rest-api", file: "REST_API.md", title: "docs.page.restApi", source: restApi, sourceEn: english("REST_API.md") },
       { id: "websocket", file: "WEBSOCKET.md", title: "docs.page.websocket", source: websocket, sourceEn: english("WEBSOCKET.md") },
+      { id: "playground", file: "", title: "docs.page.playground", source: "", sourceEn: "", custom: "playground" },
       { id: "data-model", file: "DATA_MODEL.md", title: "docs.page.dataModel", source: dataModel, sourceEn: english("DATA_MODEL.md") },
     ],
   },

@@ -45,7 +45,7 @@ Le dépôt est un workspace Cargo (`Cargo.toml`) plus une interface React.
   cours**, donc un profil ne change que si osu! renomme un champ.
 - `session` : se rattache au jeu, retrouve l'objet racine une seule fois (analyse de la mémoire), puis
   chaque instantané ne suit que quelques pointeurs.
-- `readers` : beatmap, mods, temps, utilisateur ; `pp` : calcul des PP (rosu-pp) ; `events` : détection
+- `readers` : beatmap, mods, temps, utilisateur ; `pp` : calcul des PP (rosu-pp) ; `graph` : la difficulté de la map tout au long de la chanson (frise), calculée sur son propre thread (le dernier choix gagne, résultats gardés par map, mods et vitesse) ; `events` : détection
   des événements (changement d'écran, début de partie…) ; `model` : les types publiés
   (`GameState`, `Beatmap`, `Gameplay`…, sérialisés en `camelCase`).
 - `input` : les touches et boutons de souris tenus, lus dans l'état d'entrée du jeu
@@ -60,14 +60,17 @@ Le dépôt est un workspace Cargo (`Cargo.toml`) plus une interface React.
 - `routes` : les endpoints REST et la documentation (les quatre pages `docs/API.md`, `REST_API.md`, `WEBSOCKET.md` et
   `DATA_MODEL.md` y sont incluses à la compilation, mises bout à bout, et servies sur `/api/v1/docs`).
 - `ws` : le WebSocket (sujets, événements, reconnexion). `widgets` : les manifestes et fichiers des
-  widgets communautaires.
+  widgets communautaires. `images` : les images importées pour le widget Image (vérification du type sur la
+  signature, taille max, nom = hash du contenu, jamais de chemin fourni par l'appelant), servies sur
+  `/api/v1/images/{id}` ; les commandes Tauri `import_image`, `list_images` et `delete_image` (`src-tauri/src/images.rs`)
+  les écrivent dans `<config>/images`.
 
 ### `src-tauri`
 
 - `reader` : le thread de lecture, qui a **deux cadences** : l'état de la partie toutes les `pollIntervalMs`
   et les touches toutes les `inputPollIntervalMs` (2 ms), ces dernières **seulement si quelqu'un les écoute**
   (`Hub::inputs_wanted` : un WebSocket, une fenêtre de l'application, ou une requête REST récente).
-  Pendant la lecture des touches, l'application demande à Windows un timer de 1 ms.
+  Hors partie, sans client WebSocket d'état, la lecture se ralentit (état ≥ 100 ms, touches ≥ 8 ms) ; les champs lents (mods, ruleset) ne sont relus que quelques fois par seconde. Pendant la lecture des touches, l'application demande à Windows un timer de 1 ms.
 - Les touches ont leur propre canal : `Hub::publish_inputs` ne diffuse qu'en cas de changement, vers
   `/api/v1/inputs/ws` et vers les fenêtres de l'application (événement Tauri `input-state`).
 - La session contient des handles non `Send` : elle est créée et utilisée

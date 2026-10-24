@@ -6,7 +6,7 @@ import { Row } from "./controls";
 import { Icon } from "./Icon";
 
 const outlineButton =
-  "min-h-10 rounded-lg px-3 text-sm text-ink shadow-[0_0_0_1px_oklch(1_0_0/0.12)] outline-none transition-[scale,background-color,box-shadow] duration-150 ease-out hover:bg-white/6 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100";
+  "min-h-10 rounded-lg px-3 text-sm text-ink shadow-[0_0_0_1px_oklch(from_var(--wash)_l_c_h/0.12)] outline-none transition-[scale,background-color,box-shadow] duration-150 ease-out hover:bg-wash/6 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100";
 
 const primaryButton =
   "flex min-h-10 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-surface outline-none transition-[scale,opacity,box-shadow] duration-150 ease-out focus-visible:shadow-[0_0_0_2px_var(--color-surface),0_0_0_4px_var(--color-accent)] active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100";
@@ -74,7 +74,7 @@ export function UpdateRows() {
 
       {update.phase === "downloading" && (
         <div className="py-3">
-          <div role="progressbar" aria-label={t("update.downloadingUnknown")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent ?? undefined} className="h-1.5 overflow-hidden rounded-full bg-white/10">
+          <div role="progressbar" aria-label={t("update.downloadingUnknown")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent ?? undefined} className="h-1.5 overflow-hidden rounded-full bg-wash/10">
             <div className="h-full w-full origin-left rounded-full bg-accent transition-transform duration-200 ease-out motion-reduce:transition-none" style={{ transform: `scaleX(${(percent ?? 0) / 100})` }} />
           </div>
         </div>

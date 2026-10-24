@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { Icon, type IconName } from "../components/Icon";
 import { Select } from "../components/Select";
-import { useT } from "../i18n";
+import { type MessageKey, useT } from "../i18n";
 import { useReaderStore } from "../lib/store";
 import { ConfirmDialog, ExportDialog, ImportDialog, NameDialog } from "./dialogs";
 import { Switch } from "../components/controls";
-import { ActionButton, IconButton, SelectInput, ToggleButton } from "./fields";
+import { HistoryDialog } from "./HistoryDialog";
+import { ActionButton, IconButton, NumberInput, SelectInput, ToggleButton } from "./fields";
 import type { AlignMode } from "./geometry";
-import { type Aspect, ASPECTS, isDirty, useEditor } from "./useEditor";
+import { type Aspect, ASPECTS, GRID_SIZE, isDirty, useEditor } from "./useEditor";
+import { type BackgroundId, BACKGROUNDS, backgroundStyle } from "./backgrounds";
 
-type DialogKind = "new" | "duplicate" | "rename" | "delete" | "import" | "export" | null;
+type DialogKind = "new" | "duplicate" | "rename" | "delete" | "import" | "export" | "history" | null;
 
 const ALIGN: { mode: AlignMode; icon: IconName; key: "editor.alignLeft" | "editor.alignCenter" | "editor.alignRight" | "editor.alignTop" | "editor.alignMiddle" | "editor.alignBottom" }[] = [
   { mode: "left", icon: "align-left", key: "editor.alignLeft" },
@@ -21,7 +23,7 @@ const ALIGN: { mode: AlignMode; icon: IconName; key: "editor.alignLeft" | "edito
 ];
 
 function Divider() {
-  return <span aria-hidden className="mx-1 h-5 w-px bg-white/10" />;
+  return <span aria-hidden className="mx-1 h-5 w-px bg-wash/10" />;
 }
 
 /** A named group of related controls (announced as one unit by screen readers). */
@@ -73,6 +75,8 @@ export function Toolbar() {
   const autosave = useEditor((s) => s.autosave);
   const snap = useEditor((s) => s.snap);
   const showGrid = useEditor((s) => s.showGrid);
+  const gridSize = useEditor((s) => s.gridSize);
+  const background = useEditor((s) => s.background);
   const aspect = useEditor((s) => s.aspect);
   const dataSource = useEditor((s) => s.dataSource);
   const ed = useEditor.getState();
@@ -80,7 +84,7 @@ export function Toolbar() {
   const isActive = name === activeLayout;
 
   return (
-    <div className="border-b border-white/5 bg-surface-raised">
+    <div className="border-b border-wash/5 bg-surface-raised">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2">
         <Icon name="layers" className="text-ink-dim" />
         <Select size="sm" label={t("editor.layout")} value={name} options={layouts.map((l) => ({ value: l, label: l }))} onChange={(next) => void ed.openLayout(next)} className="w-44" />
@@ -106,15 +110,16 @@ export function Toolbar() {
           <IconButton icon="upload" label={t("editor.export")} onClick={() => setDialog("export")} />
         </Group>
         {/* Destructive, so apart from the everyday actions: no slip of the pointer from "export" lands on it. */}
-        <span aria-hidden className="mx-3 h-5 w-px bg-white/10" />
+        <span aria-hidden className="mx-3 h-5 w-px bg-wash/10" />
         <IconButton icon="trash" tone="danger" label={t("editor.delete")} onClick={() => setDialog("delete")} />
         <SaveStatus />
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-white/5 px-3 py-1.5">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-wash/5 px-3 py-1.5">
         <Group label={t("editor.history")}>
           <IconButton icon="undo" label={t("editor.undo")} disabled={!canUndo} onClick={ed.undo} />
           <IconButton icon="redo" label={t("editor.redo")} disabled={!canRedo} onClick={ed.redo} />
+          <IconButton icon="clock" label={t("history.open")} onClick={() => setDialog("history")} />
         </Group>
         <Divider />
         {/*
@@ -141,15 +146,29 @@ export function Toolbar() {
         <Divider />
         <Group label={t("editor.view")}>
           <ToggleButton icon="magnet" label={t("editor.snap")} pressed={snap} onChange={(v) => ed.setToggle("snap", v)} />
+          <IconButton icon="search" label={`${t("command.open")} (Ctrl K)`} onClick={() => ed.setCommandOpen(true)} />
           <ToggleButton icon="grid" label={t("editor.grid")} pressed={showGrid} onChange={(v) => ed.setToggle("showGrid", v)} />
+          {/* The size only matters while the grid is shown: it appears with it. */}
+          {showGrid && (
+            <span className="flex items-center gap-1 text-xs text-ink-dim transition-opacity duration-150 starting:opacity-0 motion-reduce:transition-none">
+              <NumberInput label={t("editor.gridSize")} value={gridSize} min={GRID_SIZE.min} max={GRID_SIZE.max} className="w-14" onChange={ed.setGridSize} />
+              px
+            </span>
+          )}
         </Group>
+        <Divider />
+        {/* What the overlay is judged against: the swatch shows the choice before the list is opened. */}
+        <span className="flex items-center gap-1.5 text-xs text-ink-dim">
+          <span aria-hidden className="size-5 shrink-0 rounded-md shadow-[0_0_0_1px_oklch(from_var(--wash)_l_c_h/0.18)]" style={backgroundStyle(background)} />
+          <SelectInput<BackgroundId> className="w-32" label={t("editor.background")} value={background} options={BACKGROUNDS.map((b) => ({ value: b, label: t(`editor.bg.${b}` as MessageKey) }))} onChange={ed.setBackground} />
+        </span>
         <Divider />
         <span className="flex items-center gap-1.5 text-xs text-ink-dim">
           <Icon name="monitor" />
           <SelectInput<Aspect> className="w-24" label={t("editor.aspect")} value={aspect} options={(Object.keys(ASPECTS) as Aspect[]).map((a) => ({ value: a, label: a }))} onChange={ed.setAspect} />
         </span>
         <span className="flex items-center gap-1.5 text-xs text-ink-dim">
-          <Icon name="ur" />
+          <Icon name="online" />
           <SelectInput
             className="w-32"
             label={t("editor.data")}
@@ -167,6 +186,7 @@ export function Toolbar() {
         </label>
       </div>
 
+      {dialog === "history" && <HistoryDialog onClose={() => setDialog(null)} />}
       {dialog === "new" && <NameDialog title={t("editor.new")} initial="" confirmLabel={t("common.create")} templates onSubmit={(n, preset) => ed.createLayout(n, preset)} onClose={() => setDialog(null)} />}
       {dialog === "duplicate" && <NameDialog title={t("editor.duplicate")} initial={`${name} 2`.slice(0, 40)} confirmLabel={t("common.create")} onSubmit={(n) => ed.duplicateLayout(n)} onClose={() => setDialog(null)} />}
       {dialog === "rename" && <NameDialog title={t("editor.rename")} initial={name} confirmLabel={t("common.apply")} onSubmit={(n) => ed.renameLayout(n)} onClose={() => setDialog(null)} />}

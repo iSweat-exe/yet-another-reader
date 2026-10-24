@@ -17,7 +17,7 @@ These widgets read the current play; outside a play, they display neutral values
 
 > [!SCREENSHOT] gallery-gameplay
 > Sheet of all the widgets of the Gameplay category over a play background (simulated data), each with its type name as
-> a caption: score, combo, maxCombo, accuracy, rank, pp, ppFc, ppSs, ppTable, playStatus, ur, health, progress, great,
+> a caption: score, combo, maxCombo, accuracy, rank, pp, ppFc, ppSs, ppMax, ppTable, playStatus, ur, health, progress, great,
 > ok, meh, miss, hitErrors.
 
 | Type | Name | Displays | Default size |
@@ -27,9 +27,10 @@ These widgets read the current play; outside a play, they display neutral values
 | `maxCombo` | Max combo | The highest combo reached, with the map's maximum (`312x / 540x`). | 300 × 44 |
 | `accuracy` | Accuracy | The accuracy of the play (`98.71%`). | 300 × 48 |
 | `rank` | Rank | The provisional rank (`SS`, `S`, `A`…). | 120 × 80 |
-| `pp` | PP | The live PP, and what they would be at **FC** and at **SS**. | 300 × 70 |
+| `pp` | Current PP | The live PP, on their own (`412pp`). | 300 × 70 |
 | `ppFc` | PP if FC | The PP the play would be worth at **FC**, on its own (`47pp FC`). | 240 × 44 |
 | `ppSs` | PP if SS | The PP the play would be worth at **SS**, on its own (`628pp SS`). | 240 × 44 |
+| `ppMax` | Max PP | What the whole beatmap is worth as an **SS** with the active mods (`340pp MAX`). Can be shown outside a play. | 240 × 44 |
 | `ppTable` | PP at 95 / 98 / 99 / 100 % | What the beatmap is worth at these accuracies, with the active mods. Displayable outside a play. | 420 × 64 |
 | `playStatus` | Paused / failed | `PAUSED` or `FAILED` when that is the case, nothing the rest of the time. | 320 × 56 |
 | `ur` | UR | The unstable rate. | 200 × 36 |
@@ -61,12 +62,13 @@ These widgets read the selected or played beatmap, with the active mods.
 | `version` | Difficulty name | The name of the difficulty (`collab expert`). | 420 × 32 |
 | `background` | Background picture | The background picture of the beatmap. | 640 × 360 |
 | `stars` | Stars | The star rating of the difficulty (with the mods). | 180 × 44 |
+| `difficultyGraph` | Difficulty graph | The map's difficulty along the song as bars (low = calm, high = dense), with a cursor that follows the song and the overall difficulty (stars with the mods). | 720 × 90 |
 | `bpm` | BPM | The BPM of the map. | 200 × 44 |
 | `cs` | Circle size (CS) | The CS value. | 80 × 64 |
 | `ar` | Approach rate (AR) | The AR value. | 80 × 64 |
 | `od` | Overall difficulty (OD) | The OD value. | 80 × 64 |
 | `hp` | HP drain (HP) | The HP value. | 80 × 64 |
-| `timer` | Song timer | The elapsed time over the length (`1:12 / 3:05`). | 240 × 44 |
+| `timer` | Song timer | The elapsed time over the length (`1:12 / 3:05`), counted from the **first to the last hit object**: 0:00 is the first click, the end is the last one, the music is not looked at (skipping the intro shifts nothing). The progress bar follows the same rule. | 240 × 44 |
 | `mods` | Mods | The icons of the active mods. | 400 × 40 |
 
 The text widgets (`title`, `artist`, `mapper`, `version`) stay on **one line**: a text that is too long is cut with "…"
@@ -85,6 +87,21 @@ groups everything.
 | `background` | `fit` | `cover` | `cover` fills the area by cropping, `contain` fits it entirely inside. |
 | `background` | `radius` | `12` | Corner radius, in reference pixels. |
 | `background` | `blur` | `0` | Blur of the picture, in pixels (0 to 60). |
+| `difficultyGraph` | `style` | `bars` | `bars`, `curve` (smooth curve, fill optional), `line` (line only), `area` (filled area without a stroke) or `points`. |
+| `difficultyGraph` | `count` | `120` | Number of bars or points (20 to 240). The data has 120 values: below that, the **maximum** of each group is kept (a short spike does not vanish); above it, values are interpolated. Nothing is recomputed. |
+| `difficultyGraph` | `color` | `#f472b6` | Colour: full for what has already played, faded for what is to come (in every style). |
+| `difficultyGraph` | `height` | `100` | Share of the widget's height used by the graph, in % (20 to 100). |
+| `difficultyGraph` | `round` | `50` | `bars` style: roundness of the bars, in % (0 = square, 100 = fully round). |
+| `difficultyGraph` | `smooth` | `60` | Curve styles: smoothing, in % (0 = straight segments, 100 = full curve). The curve is monotone: it never goes beyond the values of its two neighbouring points. |
+| `difficultyGraph` | `lineWidth` | `2` | Curve styles: line width (or point size), 1 to 8. |
+| `difficultyGraph` | `fill` | `true` | `curve` style: fills under the curve with a gradient. |
+| `difficultyGraph` | `fillOpacity` | `45` | Opacity of the top of the gradient, in % (5 to 100). |
+| `difficultyGraph` | `reverse` | `false` | Flips the graph upside down (the bars hang from the top edge) so it can sit at the top of the screen. |
+| `difficultyGraph` | `showValue` | `false` | Shows the overall difficulty (stars with the mods) at the top left. |
+
+The **difficulty graph** reads [`difficultyGraph`](DATA_MODEL.md#difficultygraph): the bars are normalised to the map itself
+(the tallest is the hardest section *of this map*) and follow the speed mods (DT, HT) and circle mods (HR, EZ). Until the
+computation is done, or if the map file cannot be found, a faint line holds the place.
 
 > [!IMPORTANT] The **background picture** is served by the [local API](REST_API.md#get-assetsbackground): it must be
 > **enabled** in the settings. When the picture is not available (simulated editor data, API turned off, beatmap without a
@@ -113,8 +130,25 @@ logged in or their statistics are loaded.
 | `playerPp` | Player PP | The total PP of the profile. | 240 × 44 |
 | `playerAccuracy` | Player accuracy | The accuracy of the profile. | 240 × 44 |
 | `playCount` | Play count | The number of plays. | 280 × 44 |
+| `flag` | Country flag | The player's country flag (the code as text if there is no such flag). Options: show the country code, corner radius. | 72 × 48 |
+| `spectators` | Spectators | The spectators of the player's play: count only, usernames, avatars, or avatars and usernames. | 280 × 48 |
 
 The **avatar** is loaded from its online address: an Internet connection is required.
+
+The **username** has a *Show the flag* option. The flags ship with the app (`public/Textures/flags` folder, one per
+two-letter ISO country code): no network access. They are served by the overlay window; community widgets (web pages)
+cannot reach them, they read `user.countryCode` from the API instead.
+
+The **Spectators** widget has these options: the display (*Count only*, *Usernames*, *Avatars*, *Avatars and
+usernames*), *Show the count*, the maximum shown (a "+N" bubble covers the rest), stacked (overlapping) avatars,
+*Hide with no spectators* and *Load avatars from osu! (Internet)*.
+
+> **Privacy.** Spectator avatars come from osu!'s servers (`https://a.ppy.sh/{id}`): showing them makes one external
+> network request per avatar, loaded only while the widget is displayed. Untick *Load avatars from osu!* to make none:
+> the default picture is used instead (it is also used when offline).
+>
+> The list comes from the game's spectator client (`SpectatorClient.watchingUsers`): it is only filled when the game
+> is online and someone is watching.
 
 ## Miscellaneous
 
@@ -122,6 +156,7 @@ The **avatar** is loaded from its online address: an Internet connection is requ
 | --- | --- | --- | --- |
 | `text` | Text | A fixed text: a title, a signature, a label next to another widget. | 360 × 44 |
 | `clock` | Clock | The time of day. | 220 × 44 |
+| `image` | Image | A picture you imported (logo, frame, decoration): PNG, JPEG, GIF, WebP or SVG. | 320 × 320 |
 
 > [!SCREENSHOT] gallery-misc
 > The Text widgets (with "Thanks for watching" as an example) and Clock widgets (with seconds, then in 12-hour mode)
@@ -132,6 +167,22 @@ The **avatar** is loaded from its online address: an Internet connection is requ
 | `text` | `text` | `Text` | The text to display (line breaks are kept). |
 | `clock` | `seconds` | `false` | Also displays the seconds. |
 | `clock` | `hour12` | `false` | 12-hour clock (AM/PM) instead of 24. |
+| `image` | `image` | (none) | The picture to show: pick it in the list or click **Import an image…**. The layout only keeps its identifier. |
+| `image` | `fit` | `cover` | `cover` fills the box by cropping, `contain` fits entirely inside, `fill` stretches the picture to the box. |
+| `image` | `radius` | `0` | Corner radius, in reference pixels (0 to 400). |
+| `image` | `borderWidth` | `0` | Border thickness, in pixels (0 to 40). |
+| `image` | `borderColor` | `#ffffff` | Border colour. |
+| `image` | `exposure`, `contrast`, `saturation`, `temperature`, `shadows`, `highlights` | `0` | The picture editor: exposure, contrast, saturation, temperature, shadows and highlights, -100 to 100 (0 = untouched). |
+| `image` | `hue` | `0` | Hue, -180 to 180 degrees. |
+
+The picture editor settings are a filter applied when drawing: the imported file is never changed, and **GIF** and **animated WebP** keep playing (the browser animates them, the filter follows each frame).
+
+The Image widget's **opacity** is the style's (`style.opacity`).
+
+> [!IMPORTANT] The chosen file is **copied** into the app's data (PNG, JPEG, GIF, WebP or SVG, 15 MB at most) and served by
+> the [local API](REST_API.md#get-imagesid): it must be **enabled** in the settings, and browser sources (OBS) show the same
+> picture. If the picture is deleted from the list or the API is off, the widget shows a placeholder rectangle. In the browser
+> (`npm run dev`), imported pictures only live for the session.
 
 ## Inputs
 
@@ -154,7 +205,7 @@ The **Key** widget has **options** (the *Options* section of the properties, `op
 | Option | Default | Effect |
 | --- | --- | --- |
 | `device` | `keyboard` | `keyboard` or `mouse`. |
-| `key` | `Z` | Name of the key: `Z`, `X`, `Space`, `ShiftLeft`, `Number1`… for the keyboard; `Left`, `Right`, `Middle`, `Button1`, `Button2` for the mouse. See the names in [the API](API.md#real-time-inputs). |
+| `key` | `Z` | Name of the key: `Z`, `X`, `Space`, `ShiftLeft`, `Number1`… for the keyboard; `Left`, `Right`, `Middle`, `Button1`, `Button2` for the mouse. Picked from a list (keyboard or mouse keys depending on `device`). See the names in [the API](API.md#real-time-inputs). |
 | `label` | *(empty)* | Text displayed in place of the key name. |
 | `showCount` | `false` | Displays the number of presses under the key. The count starts again at zero for each play and only counts during a play. |
 | `pressedColor` | `#f472b6` | Background colour while the key is held. |

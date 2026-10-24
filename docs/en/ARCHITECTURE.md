@@ -41,7 +41,7 @@ The repository is a Cargo workspace (`Cargo.toml`) plus a React interface.
 - `version`, `profile`: detection of the exact game version at each connection, and the **names** of the fields followed. The profile
   never contains byte offsets: they are **resolved from the running game**, so a profile only changes if osu! renames a field.
 - `session`: attaches to the game, finds the root object only once (memory scan), then each snapshot only follows a few pointers.
-- `readers`: beatmap, mods, time, user; `pp`: PP calculation (rosu-pp); `events`: detection of events (screen change, start of a play…);
+- `readers`: beatmap, mods, time, user; `pp`: PP calculation (rosu-pp); `graph`: the map's difficulty along the song (the graph), computed on its own thread (the latest pick wins, results kept per map, mods and speed); `events`: detection of events (screen change, start of a play…);
   `model`: the published types (`GameState`, `Beatmap`, `Gameplay`…, serialised in `camelCase`).
 - `input`: the keys and mouse buttons held, read from the game's input state (`InputState` of osu!framework). The path is in the profile;
   the reading remembers the addresses and only costs a few reads: it can run hundreds of times per second.
@@ -54,12 +54,15 @@ The repository is a Cargo workspace (`Cargo.toml`) plus a React interface.
 - `routes`: the REST endpoints and the documentation (the four pages `docs/API.md`, `REST_API.md`, `WEBSOCKET.md` and `DATA_MODEL.md` are
   included at compile time, one after the other, and served on `/api/v1/docs`).
 - `ws`: the WebSocket (topics, events, reconnection). `widgets`: the manifests and files of the community widgets.
+  `images`: the pictures imported for the Image widget (type checked on the signature, size limit, name = hash of the content, never a
+  path given by the caller), served on `/api/v1/images/{id}`; the Tauri commands `import_image`, `list_images` and `delete_image`
+  (`src-tauri/src/images.rs`) write them into `<config>/images`.
 
 ### `src-tauri`
 
 - `reader`: the reading thread, which has **two rhythms**: the play state every `pollIntervalMs` and the keys every `inputPollIntervalMs`
   (2 ms), the latter **only if someone listens to them** (`Hub::inputs_wanted`: a WebSocket, a window of the application, or a recent REST
-  request). While the keys are read, the application asks Windows for a 1 ms timer.
+  request). Outside a play, with no state WebSocket client, reading slows down (state >= 100 ms, keys >= 8 ms) and the slow fields (mods, ruleset) are only re-read a few times per second. While the keys are read, the application asks Windows for a 1 ms timer.
 - The keys have their own channel: `Hub::publish_inputs` only broadcasts on change, to `/api/v1/inputs/ws` and to the windows of the
   application (Tauri event `input-state`).
 - The session contains non-`Send` handles: it is created and used **only** in this thread. `UiEmitter` limits the rate of the updates to the

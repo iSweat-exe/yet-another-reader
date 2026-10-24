@@ -15,8 +15,10 @@ let last = 0;
 
 function loop(now: number) {
   frame = requestAnimationFrame(loop);
-  // Small tolerance: rAF timestamps jitter around the frame boundary.
-  if (now - last < 1000 / fps - 2) return;
+  // Small tolerance: rAF timestamps jitter around the frame boundary (a quarter of the frame at
+  // high rates, so 240-360 fps still follows the display's refresh instead of skipping frames).
+  const interval = 1000 / fps;
+  if (now - last < interval - Math.min(2, interval / 4)) return;
   last = now;
   for (const tick of subscribers) tick(now);
 }

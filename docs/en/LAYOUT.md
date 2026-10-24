@@ -60,12 +60,18 @@ edges.
 | `anchor`, `x`, `y` | Anchor and distances (see above). |
 | `anchorLocked` | `true` if the anchor was chosen by hand (it then no longer follows the position). |
 | `w`, `h` | Size in reference pixels. |
+| `rotation` | Rotation in degrees, clockwise, around the centre of the widget's rectangle (default `0`, left out when it is `0`). Wrapped to `(-180, 180]`; a missing, non-numeric or infinite value is `0`. Only the drawing turns: `x`, `y`, `w`, `h` and the anchor stay those of the unrotated rectangle, so a layout without `rotation` (an older one) reads and draws exactly as before. |
 | `pages` | Pages of the game where the widget is displayed (see below). |
 | `style.color` | CSS colour of the text / bars. |
 | `style.scale` | Multiplier of the text size (default `1`). The base size depends on `h`. |
 | `style.opacity` | `0`–`1`. |
 | `style.align` | `left`, `center` or `right`. Absent = automatic: follows the widget's anchor. |
 | `style.animate`, `style.animationMs` | Number animation (see below). |
+| `style.font` | Typeface: `default` (the widget's own), `system`, `serif`, `mono`, `rounded`, `condensed`, `handwriting`, or `custom:<id>` for an imported font (same `id` as pictures: `<32 hexadecimal digits>.<ttf\|otf\|woff\|woff2>`). Absent = `default`. |
+| `style.weight` | Weight of **all** the text of the widget, `100` to `900` (rounded to the hundred). Absent = each part of the widget keeps its own. |
+| `style.tracking` | Letter spacing in hundredths of an em, `-10` to `50` (default `0`). |
+| `style.shadow`, `style.shadowColor` | Text shadow: `auto` (the usual legibility shadow), `none`, `soft`, `strong` or `glow` (a glow, in the text colour when `shadowColor` is absent). |
+| `style.outline`, `style.outlineColor` | Text outline in pixels, `0` to `8` (default `0`), and its colour (default black). |
 | `locked` | Editor: the widget cannot be moved. |
 | `group` | Editor: identifier of the group the widget belongs to (`group-1`…). Widgets that share the same value form a group, selected and moved as one block. A group of a single widget is ignored. Does not affect rendering. |
 

@@ -4,13 +4,16 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+/// The languages of the interface. Must match `LANGUAGES` in `src/i18n/languages.ts`.
+const LANGUAGES: [&str; 9] = ["en", "fr", "es", "de", "pt", "ru", "zh", "ko", "ja"];
+
 pub const MIN_POLL_MS: u64 = 8;
 pub const MAX_POLL_MS: u64 = 5000;
 pub const MIN_PORT: u16 = 1024;
 pub const MAX_RTSS_COORD: u32 = 8000;
 /// The held keys are sampled much faster than the rest, so the overlay of keys is real time.
 pub const INPUT_POLL_RANGE: std::ops::RangeInclusive<u64> = 1..=100;
-pub const FPS_RANGE: std::ops::RangeInclusive<u32> = 5..=144;
+pub const FPS_RANGE: std::ops::RangeInclusive<u32> = 5..=360;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -31,7 +34,7 @@ pub struct Settings {
     pub overlay_fps: u32,
     /// Name of the layout the overlay shows.
     pub active_layout: String,
-    /// `auto` (system language), `fr` or `en`.
+    /// `auto` (system language) or the code of a language of the interface (see `LANGUAGES`).
     pub language: String,
     /// Show the stats through RivaTuner (RTSS), which can draw over exclusive-fullscreen games.
     pub rtss_enabled: bool,
@@ -116,8 +119,8 @@ impl Settings {
         if !crate::layout::is_valid_name(&self.active_layout) {
             return Err("Invalid layout name.".into());
         }
-        if !matches!(self.language.as_str(), "auto" | "fr" | "en") {
-            return Err("Language must be auto, fr or en.".into());
+        if self.language != "auto" && !LANGUAGES.contains(&self.language.as_str()) {
+            return Err("Unknown language.".into());
         }
         if !FPS_RANGE.contains(&self.overlay_fps) {
             return Err(format!(
@@ -214,5 +217,15 @@ mod tests {
         let s: Settings = serde_json::from_str(r#"{"pollIntervalMs": 50}"#).unwrap();
         assert_eq!(s.poll_interval_ms, 50);
         assert_eq!(s.api_port, 24051);
+    }
+
+    #[test]
+    fn validate_should_bound_the_overlay_refresh_rate() {
+        let with = |overlay_fps| Settings {
+            overlay_fps,
+            ..Settings::default()
+        };
+        assert!(with(240).validate().is_ok() && with(*FPS_RANGE.end()).validate().is_ok());
+        assert!(with(4).validate().is_err() && with(FPS_RANGE.end() + 1).validate().is_err());
     }
 }

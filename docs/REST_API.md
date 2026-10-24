@@ -43,6 +43,7 @@ Dans les exemples JavaScript de cette page, `API` vaut `"http://127.0.0.1:24051/
 | [`GET /screen`](#get-screen) | objet | Écran courant et état de jeu |
 | [`GET /beatmap`](#get-beatmap) | objet ou `null` | La beatmap sélectionnée |
 | [`GET /difficulty`](#get-difficulty) | objet ou `null` | Étoiles et PP avec les mods actifs |
+| [`GET /difficulty-graph`](#get-difficulty-graph) | objet ou `null` | Difficulté tout au long de la chanson (frise) |
 | [`GET /mods`](#get-mods) | objet | Mods sélectionnés et mode de jeu |
 | [`GET /time`](#get-time) | objet ou `null` | Position dans la chanson |
 | [`GET /user`](#get-user) | objet ou `null` | Utilisateur connecté et ses statistiques |
@@ -52,6 +53,7 @@ Dans les exemples JavaScript de cette page, `API` vaut `"http://127.0.0.1:24051/
 | [`GET /inputs`](#get-inputs) | objet | Touches et boutons de souris tenus, **temps réel** |
 | [`GET /assets/background`](#get-assetsbackground) | image | Fond d'écran de la beatmap |
 | [`GET /assets/audio`](#get-assetsaudio) | audio | Fichier audio de la beatmap (`Range` supporté) |
+| [`GET /images/{id}`](#get-imagesid) | image | Une image importée pour le widget Image |
 | [`GET /widgets`](#get-widgets) | tableau | Manifestes des widgets communautaires |
 | [`GET /docs`](#get-docs) | Markdown | La documentation de l'API |
 | `GET /ws` | WebSocket | Flux de l'état : voir [WebSocket](WEBSOCKET.md#flux-de-létat) |
@@ -322,7 +324,15 @@ if (state.gameplay) console.log(state.gameplay.score, state.gameplay.combo);
     "pp95": 250.0,
     "pp98": 290.0,
     "pp99": 310.0,
-    "pp100": 340.0
+    "pp100": 340.0,
+    "firstObjectMs": 3200.0,
+    "lastObjectMs": 176400.0
+  },
+  "difficultyGraph": {
+    "durationMs": 180000.0,
+    "overall": 7.4,
+    "peakMs": 174750.0,
+    "buckets": [0.15, 0.158, 0.167, 0.175, 0.183, 0.192, 0.2, 0.208, 0.217, 0.225, 0.233, 0.242, 0.25, 0.258, 0.267, 0.275, 0.283, 0.292, 0.62, 0.563, 0.644, 0.714, 0.767, 0.796, 0.797, 0.772, 0.722, 0.653, 0.573, 0.61, 0.686, 0.747, 0.787, 0.8, 0.786, 0.746, 0.684, 0.608, 0.575, 0.655, 0.723, 0.773, 0.798, 0.795, 0.766, 0.713, 0.641, 0.56, 0.622, 0.696, 0.755, 0.79, 0.8, 0.781, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.6, 0.607, 0.613, 0.616, 0.625, 0.635, 0.644, 0.651, 0.653, 0.651, 0.658, 0.675, 0.688, 0.696, 0.696, 0.689, 0.689, 0.711, 0.73, 0.741, 0.741, 0.731, 0.715, 0.745, 0.77, 0.785, 0.787, 0.775, 0.753, 0.774, 0.807, 0.828, 0.834, 0.822, 0.796, 0.8, 0.84, 0.869, 0.88, 0.87, 0.843, 0.821, 0.87, 0.908, 0.926, 0.92, 0.892, 0.849, 0.895, 0.943, 0.97, 0.97, 0.943, 0.897]
   },
   "time": {
     "currentMs": 8000.0,
@@ -347,6 +357,12 @@ if (state.gameplay) console.log(state.gameplay.score, state.gameplay.combo);
       "totalScore": 21000000000
     }
   },
+  "spectators": [
+    { "id": 2, "username": "peppy", "avatarUrl": "https://a.ppy.sh/2" },
+    { "id": 124493, "username": "Cookiezi", "avatarUrl": "https://a.ppy.sh/124493" },
+    { "id": 4787150, "username": "mrekk", "avatarUrl": "https://a.ppy.sh/4787150" }
+  ],
+  "spectatorCount": 3,
   "gameplay": {
     "score": 15400,
     "scoreWithoutMods": 11200,
@@ -401,8 +417,11 @@ Les champs sont décrits dans le [modèle de données](DATA_MODEL.md#gamestate-s
   "mods": [],
   "beatmap": null,
   "difficulty": null,
+  "difficultyGraph": null,
   "time": null,
   "user": null,
+  "spectators": [],
+  "spectatorCount": 0,
   "gameplay": null
 }
 ```
@@ -520,11 +539,52 @@ if (d) console.log(`${d.stars.toFixed(2)}★, ${Math.round(d.pp98)}pp à 98 %`);
   "pp95": 250.0,
   "pp98": 290.0,
   "pp99": 310.0,
-  "pp100": 340.0
+  "pp100": 340.0,
+  "firstObjectMs": 3200.0,
+  "lastObjectMs": 176400.0
 }
 ```
 
 `null` si aucune beatmap n'est sélectionnée, ou si son fichier `.osu` est introuvable. Voir [`Difficulty`](DATA_MODEL.md#difficulty).
+
+### `GET /difficulty-graph`
+
+La difficulté de la beatmap **tout au long de la chanson**, avec les mods actifs : 120 barres normalisées sur la map elle-même
+(`0` = passage calme, `1` = le plus dur de cette map), pour tracer une frise. Le calcul se fait une fois par map, mods et
+vitesse, hors du thread de lecture : la réponse est `null` pendant cette fraction de seconde.
+
+**Exemple d'utilisation**
+
+```bash
+curl http://127.0.0.1:24051/api/v1/difficulty-graph
+```
+
+```js
+const g = await (await fetch(`${API}/difficulty-graph`)).json();
+if (g) console.log(`${g.overall.toFixed(2)}★, passage le plus dur à ${Math.round(g.peakMs / 1000)} s`);
+```
+
+**Exemple de réponse** : `200`
+
+```json
+{
+  "durationMs": 180000.0,
+  "overall": 7.4,
+  "peakMs": 174750.0,
+  "buckets": [
+    0.15, 0.158, 0.167, 0.175, 0.183, 0.192, 0.2, 0.208, 0.217, 0.225, 0.233, 0.242, 0.25, 0.258, 0.267,
+    0.275, 0.283, 0.292, 0.62, 0.563, 0.644, 0.714, 0.767, 0.796, 0.797, 0.772, 0.722, 0.653, 0.573, 0.61,
+    0.686, 0.747, 0.787, 0.8, 0.786, 0.746, 0.684, 0.608, 0.575, 0.655, 0.723, 0.773, 0.798, 0.795, 0.766,
+    0.713, 0.641, 0.56, 0.622, 0.696, 0.755, 0.79, 0.8, 0.781, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12,
+    0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.6, 0.607, 0.613, 0.616, 0.625, 0.635, 0.644, 0.651, 0.653,
+    0.651, 0.658, 0.675, 0.688, 0.696, 0.696, 0.689, 0.689, 0.711, 0.73, 0.741, 0.741, 0.731, 0.715, 0.745,
+    0.77, 0.785, 0.787, 0.775, 0.753, 0.774, 0.807, 0.828, 0.834, 0.822, 0.796, 0.8, 0.84, 0.869, 0.88,
+    0.87, 0.843, 0.821, 0.87, 0.908, 0.926, 0.92, 0.892, 0.849, 0.895, 0.943, 0.97, 0.97, 0.943, 0.897
+  ]
+}
+```
+
+`null` si aucune beatmap n'est sélectionnée, si son fichier `.osu` est introuvable ou tant que le calcul n'est pas fini. Voir [`DifficultyGraph`](DATA_MODEL.md#difficultygraph).
 
 ### `GET /mods`
 
@@ -870,6 +930,50 @@ accept-ranges: bytes
 ```
 
 Les erreurs sont celles de [`/assets/background`](#get-assetsbackground).
+
+## Images importées
+
+### `GET /images/{id}`
+
+Une image importée par l'utilisateur pour le widget [Image](BUILTIN_WIDGETS.md#divers) (bouton **Importer une image…**
+de l'éditeur), ou une **police** importée pour le texte d'un widget (`style.font`, voir [Layout](LAYOUT.md)), servie avec le
+bon `Content-Type` (`font/woff2`…). Le fichier est copié dans les données de l'application sous un nom
+qui est un **hash de son contenu** : l'`id` (`<32 chiffres hexadécimaux>.<png|jpg|gif|webp|svg|ttf|otf|woff|woff2>`) est la seule chose
+qu'un layout garde, et la même image importée deux fois a le même `id`. Seuls des fichiers **PNG, JPEG, GIF, WebP, SVG** (images) ou **TTF, OTF, WOFF, WOFF2** (polices)
+de 15 Mo au maximum sont acceptés (le type est vérifié sur le contenu, pas sur l'extension ; un SVG avec un script est
+refusé). Un `id` qui n'a pas exactement cette forme répond `404` : aucun autre fichier ne peut être atteint.
+
+**Exemple d'utilisation**
+
+```bash
+curl http://127.0.0.1:24051/api/v1/images/cb27a70bc0fd6a4607c0b158be921383.png -o image.png
+```
+
+```html
+<img src="http://127.0.0.1:24051/api/v1/images/cb27a70bc0fd6a4607c0b158be921383.png" />
+```
+
+```js
+const layoutOptions = { image: "cb27a70bc0fd6a4607c0b158be921383.png" }; // ce que garde un widget Image
+const src = `${API}/images/${layoutOptions.image}`;
+```
+
+**Exemple de réponse** : `200`, `Content-Type: image/png`, `Cache-Control: public, max-age=31536000, immutable` (l'`id` ne
+change jamais de contenu), `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox; default-src 'none'; style-src 'unsafe-inline'`
+(un SVG ouvert seul n'exécute rien), puis les octets de l'image.
+
+**Erreurs**
+
+| Code | `error.code` | `error.message` |
+| --- | --- | --- |
+| `404` | `notFound` | `no such picture` : l'`id` est invalide, l'image a été supprimée, ou l'application n'a pas de dossier d'images |
+| `500` | `io` | Erreur de lecture du fichier |
+
+Exemple :
+
+```json
+{"error": {"code": "notFound", "message": "no such picture"}}
+```
 
 ## Widgets et documentation
 

@@ -72,10 +72,14 @@ impl PpEngine {
         mods: &[String],
         settings: ModSettings,
     ) -> Option<&DifficultyInfo> {
-        let key = (sha256.to_owned(), mods.to_vec(), settings);
-        if self.loaded.as_ref().is_none_or(|l| l.key != key) {
+        // Compared in place: this runs every snapshot, so no key is built unless something changed.
+        let unchanged = self
+            .loaded
+            .as_ref()
+            .is_some_and(|l| l.key.0 == sha256 && l.key.1 == mods && l.key.2 == settings);
+        if !unchanged {
             self.live = None;
-            self.loaded = self.load(key);
+            self.loaded = self.load((sha256.to_owned(), mods.to_vec(), settings));
         }
         self.loaded.as_ref().map(|l| &l.info)
     }
@@ -94,6 +98,9 @@ impl PpEngine {
                 .calculate()
                 .pp()
         };
+        let times = map.hit_objects.iter().map(|o| o.start_time);
+        let first = times.clone().reduce(f64::min).unwrap_or(0.0);
+        let last = times.reduce(f64::max).unwrap_or(0.0);
         let info = DifficultyInfo {
             stars: attrs.stars(),
             max_combo: attrs.max_combo(),
@@ -101,6 +108,8 @@ impl PpEngine {
             pp98: pp_at(98.0),
             pp99: pp_at(99.0),
             pp100: pp_at(100.0),
+            first_object_ms: first,
+            last_object_ms: last,
         };
         Some(Loaded {
             key,

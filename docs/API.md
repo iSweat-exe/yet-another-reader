@@ -123,7 +123,7 @@ publiées **à chaque changement**.
 > récente sur `/inputs` (pendant 5 secondes), ou un widget de touches affiché dans l'overlay. Sinon, aucune lecture
 > supplémentaire n'est faite dans le jeu.
 
-C'est l'état d'entrée **du jeu lui-même** : une touche pressée alors qu'une autre fenêtre a le focus n'est pas vue. Pendant un **replay**, les touches rejouées (celles que le jeu affiche) apparaissent aussi : elles sont déduites des actions du ruleset et de tes raccourcis (Z/X par défaut). Tes propres touches sont alors **ignorées** (le jeu les ignore aussi), pour ne pas mélanger les deux. Les noms
+C'est l'état d'entrée **du jeu lui-même** : une touche pressée alors qu'une autre fenêtre a le focus n'est pas vue. Pendant un **replay** ou avec un mod qui joue à ta place (**AT**, **CN**, **RX**), les touches rejouées (celles que le jeu affiche) apparaissent aussi : elles sont déduites des actions du ruleset et de tes raccourcis (Z/X par défaut). Tes propres touches sont alors **ignorées** (le jeu les ignore aussi), pour ne pas mélanger les deux. Seul ce que le jeu presse lui-même est lu (le dernier état de replay de son gestionnaire d'entrées), jamais tes touches physiques, y compris avec **RX**. Avec RX, AT et Cinéma, le jeu retire de son conteneur les raccourcis des boutons : les touches affichées sont alors celles de ta dernière partie normale du même ruleset, sinon `Z` et `X` pour osu!. Les noms
 sont ceux d'osu!framework (`osuTK.Input.Key` et `MouseButton`) : lettres (`Z`), chiffres (`Number1`), `Space`, `ShiftLeft`,
 `ControlLeft`, `Escape`, `Tilde`, `Up`, `F1`, `Keypad0`…, et pour la souris `Left`, `Right`, `Middle`, `Button1`, `Button2`.
 
