@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// State of the connection between this app and osu!lazer.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -60,6 +60,36 @@ pub struct GameState {
     pub spectator_count: u32,
     /// Only present while a `Player` screen is on top.
     pub gameplay: Option<Gameplay>,
+    /// The best completed solo play of the current beatmap that the app has seen (`null` before the first).
+    pub personal_best: Option<PersonalBest>,
+}
+
+/// The best completed solo play of a beatmap, as seen by the app (plays made before it ran are unknown).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PersonalBest {
+    pub score: i64,
+    /// Performance points at the end of the play (`0` when they could not be computed).
+    pub pp: f64,
+    /// 0.0 – 1.0.
+    pub accuracy: f64,
+    pub max_combo: i32,
+    pub mods: Vec<String>,
+    /// When the play ended, in milliseconds since the Unix epoch.
+    pub played_at: u64,
+}
+
+/// A personal best with how it unfolded: one sample per second of song time.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PersonalBestGhost {
+    #[serde(flatten)]
+    pub best: PersonalBest,
+    /// `[songTimeMs, score, pp, accuracy]`, in song-time order.
+    pub samples: Vec<[f64; 4]>,
+    /// The highest PP of any completed solo play of this beatmap the app has seen, even when a play
+    /// with a higher score (and so a different `best`) gave less.
+    pub max_pp: f64,
 }
 
 /// The values a Difficulty Adjust mod forces; `None` for a stat it leaves alone.

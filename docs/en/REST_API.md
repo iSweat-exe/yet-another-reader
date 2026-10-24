@@ -48,6 +48,7 @@ In the JavaScript examples on this page, `API` is `"http://127.0.0.1:24051/api/v
 | [`GET /gameplay`](#get-gameplay) | object or `null` | The play in progress |
 | [`GET /pp`](#get-pp) | object or `null` | Live / FC / SS PP |
 | [`GET /hit-errors`](#get-hit-errors) | object | UR and latest timing errors |
+| [`GET /personal-best`](#get-personal-best) | object or `null` | The best score on the beatmap seen by the application, with how it unfolded |
 | [`GET /inputs`](#get-inputs) | object | Keys and mouse buttons held, **real time** |
 | [`GET /assets/background`](#get-assetsbackground) | image | Background picture of the beatmap |
 | [`GET /assets/audio`](#get-assetsaudio) | audio | Audio file of the beatmap (`Range` supported) |
@@ -56,6 +57,7 @@ In the JavaScript examples on this page, `API` is `"http://127.0.0.1:24051/api/v
 | [`GET /docs`](#get-docs) | Markdown | The API documentation |
 | `GET /ws` | WebSocket | State stream: see [WebSocket](WEBSOCKET.md#state-stream) |
 | `GET /inputs/ws` | WebSocket | Keys stream: see [WebSocket](WEBSOCKET.md#input-stream) |
+| `GET /events/ws` | WebSocket | Events-only stream: see [WebSocket](WEBSOCKET.md#event-stream) |
 
 Outside `/api/v1`, [`GET /widgets/<folder>/<file>`](#get-widgetsfolderfile) serves the files of the
 [community widgets](WIDGETS.md).
@@ -88,6 +90,7 @@ console.log(index.apiVersion, index.endpoints.length);
   "appVersion": "0.1.0",
   "websocket": "/api/v1/ws",
   "inputsWebsocket": "/api/v1/inputs/ws",
+  "eventsWebsocket": "/api/v1/events/ws",
   "documentation": "/api/v1/docs",
   "endpoints": [
     {
@@ -106,7 +109,7 @@ console.log(index.apiVersion, index.endpoints.length);
 }
 ```
 
-The fields: `name`, `apiVersion` (the contract number, `1`), `appVersion` (the version of the application), `websocket` and `inputsWebsocket` (the paths of the two WebSockets), `documentation` and `endpoints` (each route with its `description`, in English).
+The fields: `name`, `apiVersion` (the contract number, `1`), `appVersion` (the version of the application), `websocket`, `inputsWebsocket` and `eventsWebsocket` (the paths of the three WebSockets), `documentation` and `endpoints` (each route with its `description`, in English).
 
 ### `GET /health`
 
@@ -398,11 +401,22 @@ if (state.gameplay) console.log(state.gameplay.score, state.gameplay.combo);
       4.5,
       8.1
     ]
+  },
+  "personalBest": {
+    "score": 66000,
+    "pp": 148.2,
+    "accuracy": 0.9812,
+    "maxCombo": 301,
+    "mods": [
+      "HD",
+      "DT"
+    ],
+    "playedAt": 1760000000000
   }
 }
 ```
 
-The fields are described in the [data model](DATA_MODEL.md#gamestate-state). Response when osu!lazer is not running (`connected` is `false`, everything else is empty):
+The fields are described in the [data model](DATA_MODEL.md#gamestate-state). `personalBest` is the [best score](#get-personal-best) on the beatmap, **without** its `samples` and `maxPp` (or `null` before the first one). Response when osu!lazer is not running (`connected` is `false`, everything else is empty):
 
 ```json
 {
@@ -420,7 +434,8 @@ The fields are described in the [data model](DATA_MODEL.md#gamestate-state). Res
   "user": null,
   "spectators": [],
   "spectatorCount": 0,
-  "gameplay": null
+  "gameplay": null,
+  "personalBest": null
 }
 ```
 
@@ -807,6 +822,98 @@ Outside a play, the route always answers `200`:
 
 `unstableRate` is also `null` before the second hit. The list keeps at most the last 128 errors.
 
+### `GET /personal-best`
+
+The **best score** on the selected beatmap, as the application has **seen** it, with how it unfolded second by second: what you need to compare a live play with your record, at the same point of the song.
+
+- Only **completed solo plays** count (up to the results screen). A replay, spectating, a failed or a quit play never becomes a record.
+- A play replaces the record only if its score is **strictly higher**.
+- `maxPp` keeps the **highest PP** of every completed solo play of the beatmap, even when its score is lower than the record's.
+- Plays made **before** the application ran are **unknown**: it does not read osu!lazer's score database.
+- The record is kept in `records/<beatmap sha256>.json`, in the [config folder](SETTINGS.md#where-are-my-files): it survives restarts.
+- `null` until a record exists for the beatmap.
+
+**Usage example**
+
+```bash
+curl http://127.0.0.1:24051/api/v1/personal-best
+```
+
+```js
+const record = await (await fetch(`${API}/personal-best`)).json();
+if (record) console.log(`record: ${record.score} points, ${(record.accuracy * 100).toFixed(2)}%`);
+```
+
+**Response example**: `200`
+
+```json
+{
+  "score": 66000,
+  "pp": 148.2,
+  "accuracy": 0.9812,
+  "maxCombo": 301,
+  "mods": [
+    "HD",
+    "DT"
+  ],
+  "playedAt": 1760000000000,
+  "samples": [
+    [0.0, 0.0, 100.0, 0.985],
+    [4000.0, 7333.333333333333, 105.35555555555555, 0.9845555555555555],
+    [8000.0, 14666.666666666666, 110.71111111111111, 0.984111111111111]
+  ],
+  "maxPp": 152.7
+}
+```
+
+The response is shortened to three samples: the sample server gives ten, one every 4 seconds, whereas a real play records **one per second** of song.
+
+| Field | Description |
+| --- | --- |
+| `score` | Final score (with the mod multiplier). |
+| `pp` | PP at the end of the play (`0` if they could not be calculated). |
+| `accuracy` | Accuracy, `0.0`–`1.0`. |
+| `maxCombo` | Best combo of the play. |
+| `mods` | Mods of the play. |
+| `playedAt` | End of the play, in milliseconds since the Unix epoch. |
+| `samples` | How it unfolded: `[songTimeMs, score, pp, accuracy]`, in time order. The last sample is the end of the play. |
+| `maxPp` | The highest PP of a completed solo play of the beatmap seen by the application (at least `pp`). |
+
+The same object, **without** `samples` and `maxPp`, is in `personalBest` of [`GET /state`](#get-state) and of the `state` messages of the [WebSocket](WEBSOCKET.md#state-stream): that is enough to display the record, the route is there to **compare** with it.
+
+**Comparing a live play with the record**: read the route once (when the beatmap changes), then, on every `state`, look up the record's value **at the same song time** as the play. The time of the play is `time.currentMs` when `time.source` is `gameplay`; between two samples, interpolate.
+
+```js
+const API = "http://127.0.0.1:24051/api/v1";
+const record = await (await fetch(`${API}/personal-best`)).json();
+
+// Value of the record at a given song time (linear interpolation between two samples).
+// column: 1 = score, 2 = pp, 3 = accuracy.
+function recordAt(t, column = 1) {
+  const s = record.samples;
+  if (t <= s[0][0]) return s[0][column];
+  for (let i = 1; i < s.length; i++) {
+    if (t <= s[i][0]) {
+      const k = (t - s[i - 1][0]) / (s[i][0] - s[i - 1][0]);
+      return s[i - 1][column] + k * (s[i][column] - s[i - 1][column]);
+    }
+  }
+  return s[s.length - 1][column];
+}
+
+const ws = new WebSocket(API.replace("http", "ws") + "/ws?topics=gameplay,time&events=false");
+ws.onmessage = (e) => {
+  const msg = JSON.parse(e.data);
+  if (msg.type !== "hello" && msg.type !== "state") return;
+  const { gameplay, time } = msg.data;
+  if (!record || !gameplay || time?.source !== "gameplay") return;
+  const gap = gameplay.score - recordAt(time.currentMs);
+  console.log(`${gap >= 0 ? "+" : ""}${Math.round(gap)} points compared to the record`);
+};
+```
+
+> [!NOTE] `personalBest` is **not** a topic of the [state WebSocket](WEBSOCKET.md#connection): with `?topics=` it is not sent. The `samples` are only on this route anyway.
+
 ## Inputs
 
 ### `GET /inputs`
@@ -1072,6 +1179,7 @@ An API error returns an HTTP code and a JSON body always of the same shape:
 | `404` | `notFound` | Unknown route (`/api/v1/nope`, `/api/v1/state/`, `/`…) | `{"error":{"code":"notFound","message":"no such endpoint; see /api/v1"}}` |
 | `404` | `notFound` | Beatmap file unavailable | see [Beatmap files](#beatmap-files) |
 | `400` | `invalidTopic` | An invalid `topics` when opening the [state WebSocket](WEBSOCKET.md#connection) | `unknown topic "nope"; valid topics: …` |
+| `400` | `invalidEvent` | An invalid `names` when opening the [events WebSocket](WEBSOCKET.md#filtering-the-events) | `unknown event "nope"; valid events: …` |
 | `500` | `io` | Error reading a file | |
 
 Other responses are **not** JSON:
@@ -1089,6 +1197,7 @@ application is not running.
 - **A one-off script**: `GET /state`, or `GET /snapshot` to get a consistent status and state.
 - **Polling anyway**: there is no point calling more often than `pollIntervalMs` (33 ms by default), the state does not change faster.
   Use `seq` to detect a change.
+- **React to a note, a miss, a broken combo**: the [events WebSocket](WEBSOCKET.md#event-stream), rather than comparing two states.
 - **The keys**: `GET /inputs` works in a loop (5 seconds of reading per call), but the keys WebSocket is more responsive.
 - **Reconnection**: the API restarts when you change the port or turn it off; retry with an increasing delay.
 

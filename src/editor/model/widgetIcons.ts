@@ -45,6 +45,8 @@ const ICONS: Record<string, IconName> = {
   ppSs: "pp",
   ppMax: "pp",
   ppTable: "pp",
+  ppDelta: "pp",
+  ppGraph: "pp",
   playStatus: "play",
   text: "text",
   clock: "clock",

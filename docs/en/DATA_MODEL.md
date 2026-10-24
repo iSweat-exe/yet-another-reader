@@ -27,6 +27,7 @@ The common conventions (`camelCase`, `null`, units) are in the [guide](API.md#co
 | `spectators` | `Spectator[]` | The users watching the logged-in player's play (100 at most). Empty when nobody watches. |
 | `spectatorCount` | int | Number of spectators (not capped). |
 | `gameplay` | `Gameplay` \| null | Play in progress. |
+| `personalBest` | `PersonalBest` \| null | The best score on the selected beatmap seen by the application (without the `samples` and `maxPp`). `null` before the first one. Not a topic of the [WebSocket](WEBSOCKET.md#connection). |
 
 **`Screen`**: `unknown` · `menu` · `songSelect` · `playing` · `results` · `editor` · `multiplayer` · `other`
 
@@ -163,6 +164,21 @@ the list is empty when offline or when nobody watches).
 `results`: possible keys (only those with at least one occurrence are present): `None`, `Miss`, `Meh`, `Ok`, `Good`, `Great`, `Perfect`,
 `SmallTickMiss`, `SmallTickHit`, `LargeTickMiss`, `LargeTickHit`, `SmallBonus`, `LargeBonus`, `IgnoreMiss`, `IgnoreHit`, `ComboBreak`,
 `SliderTailHit`, `LegacyComboIncrease` (and `Result<n>` for an unknown value).
+
+## `PersonalBest`
+
+The best **completed solo** score on the selected beatmap, as the application has seen it (plays made before it ran are unknown; a replay, a failed or a quit play never counts; a strictly higher score is needed to replace it). In `GameState` it has neither `samples` nor `maxPp`; [`GET /personal-best`](REST_API.md#get-personal-best) adds them.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `score` | int | Final score (with the mod multiplier). |
+| `pp` | number | PP at the end of the play (`0` if they could not be calculated). |
+| `accuracy` | number | `0.0`–`1.0`. |
+| `maxCombo` | int | Best combo of the play. |
+| `mods` | string[] | Acronyms of the mods of the play. |
+| `playedAt` | int | End of the play, in milliseconds since the Unix epoch. |
+| `samples` | number[][] | Only on `GET /personal-best`: `[songTimeMs, score, pp, accuracy]`, about one per second of song, in time order. |
+| `maxPp` | number | Only on `GET /personal-best`: the highest PP of a completed solo play of the beatmap seen by the application, even if its score is lower than the record's (at least `pp`). |
 
 ## PP and stars
 

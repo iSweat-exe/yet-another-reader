@@ -9,10 +9,11 @@ import { LIVE_WIDGETS } from "./builtin/live";
 import { MAP_WIDGETS } from "./builtin/map";
 import { MISC_WIDGETS } from "./builtin/misc";
 import { PLAYER_WIDGETS } from "./builtin/player";
+import { PP_WIDGETS } from "./builtin/ppGraph";
 import { SOCIAL_WIDGETS } from "./builtin/social";
 import type { WidgetDefinition } from "./types";
 
-export const WIDGETS: readonly WidgetDefinition[] = [...BASIC_WIDGETS, ...BAR_WIDGETS, ...INFO_WIDGETS, ...PLAYER_WIDGETS, ...SOCIAL_WIDGETS, ...INPUT_WIDGETS, ...MAP_WIDGETS, ...LIVE_WIDGETS, ...MISC_WIDGETS, ...IMAGE_WIDGETS, ...DIFFICULTY_GRAPH_WIDGETS, ...HISTORY_WIDGETS];
+export const WIDGETS: readonly WidgetDefinition[] = [...BASIC_WIDGETS, ...BAR_WIDGETS, ...INFO_WIDGETS, ...PLAYER_WIDGETS, ...SOCIAL_WIDGETS, ...INPUT_WIDGETS, ...MAP_WIDGETS, ...LIVE_WIDGETS, ...MISC_WIDGETS, ...IMAGE_WIDGETS, ...DIFFICULTY_GRAPH_WIDGETS, ...HISTORY_WIDGETS, ...PP_WIDGETS];
 
 const BY_TYPE = new Map(WIDGETS.map((w) => [w.type, w]));
 
@@ -37,7 +38,7 @@ const CATEGORY_GROUPS: readonly { id: WidgetCategory; groups: readonly WidgetGro
     id: "gameplay",
     groups: [
       { id: "score", types: ["score", "combo", "maxCombo", "accuracy", "rank", "ur"] },
-      { id: "pp", types: ["pp", "ppFc", "ppSs", "ppMax", "ppTable"] },
+      { id: "pp", types: ["pp", "ppFc", "ppSs", "ppMax", "ppTable", "ppDelta", "ppGraph"] },
       { id: "judgements", types: ["great", "ok", "meh", "miss", "hitErrors", "hitErrorBar"] },
       { id: "history", types: ["playGraph", "pbDelta"] },
       { id: "state", types: ["health", "progress", "playStatus"] },

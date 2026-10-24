@@ -19,7 +19,7 @@ Ces widgets lisent la partie en cours ; hors partie, ils affichent des valeurs n
 > [!SCREENSHOT] gallery-gameplay
 > Planche de tous les widgets de la catégorie Partie sur fond de partie (données simulées), chacun avec son nom de type
 > en légende : score, combo, maxCombo, accuracy, rank, pp, ppFc, ppSs, ppMax, ppTable, playStatus, ur, health, progress, great,
-> ok, meh, miss, hitErrors.
+> ok, meh, miss, hitErrors, hitErrorBar, playGraph, pbDelta.
 
 | Type | Nom | Affiche | Taille par défaut |
 | --- | --- | --- | --- |
@@ -42,10 +42,61 @@ Ces widgets lisent la partie en cours ; hors partie, ils affichent des valeurs n
 | `meh` | Meh (50) | Le nombre de 50. | 100 × 80 |
 | `miss` | Miss | Le nombre de miss. | 100 × 80 |
 | `hitErrors` | Erreurs de timing | Les dernières erreurs de timing, en traits sur une ligne. | 500 × 36 |
+| `hitErrorBar` | Barre d'erreurs de timing | Les erreurs de timing sur l'échelle des fenêtres de hit, comme dans osu!lazer. | 500 × 48 |
+| `playGraph` | Graphe PP / précision | Les PP, la précision ou le score tout au long de la chanson, avec la courbe du record en option. | 520 × 140 |
+| `pbDelta` | Écart au record | L'écart entre la partie et ton record, **au même point de la chanson**. | 280 × 84 |
+| `ppDelta` | Écart au PP max | L'écart entre tes PP en cours et le **plus haut PP** que tu as eu sur cette map. | 280 × 84 |
+| `ppGraph` | Graphe PP (formes) | Les PP de la partie au fil de la chanson, en ligne, aire, marches, barres, points ou anneau. | 420 × 140 |
 
 > `hitCounts` (« 300 / 100 / 50 / miss » en un seul widget) existe toujours : le layout classique et les
 > layouts déjà enregistrés l'utilisent. Il n'est plus proposé dans la palette ; utilise les quatre
 > widgets séparés ci-dessus pour de nouveaux layouts.
+
+Dans la palette, `hitErrorBar` est dans le groupe *Jugements* ; `playGraph` et `pbDelta` forment le groupe *Progression et record* ; `ppDelta` et `ppGraph` sont dans le groupe des PP, avec `pp`, `ppFc`, `ppSs`, `ppMax` et `ppTable`.
+
+### Barre d'erreurs, graphe et record
+
+**Barre d'erreurs de timing** (`hitErrorBar`) : comme le compteur d'osu!lazer, elle place chaque hit sur une échelle de timing, tôt à gauche, tard à droite, le zéro au milieu.
+
+- Les **bandes** colorées sont les fenêtres de hit : *great* (bleu), *ok* (vert) et *meh* (jaune). Elles viennent de l'**OD effectif** : celui de la map, ×1,4 (plafonné à 10) avec **HR**, ×0,5 avec **EZ**, et la valeur forcée par **Difficulty Adjust** quand il est actif (il l'emporte sur HR et EZ).
+- Les bandes ne sont dessinées que pour **osu!standard**. Dans les autres modes, la barre garde une échelle fixe de ±120 ms, sans bandes ni couleurs par jugement.
+- Chaque hit laisse un **trait**, coloré selon son jugement ; le plus récent est **plus épais**, les plus anciens s'estompent.
+- Un **repère** (triangle) marque la **moyenne** des erreurs : tu vois d'un coup d'œil si tu joues plutôt tôt ou tard.
+
+**Graphe PP / précision** (`playGraph`) : la valeur choisie, dessinée **au fil de la partie**, sur toute la largeur de la map (de son premier à son dernier objet). La courbe du **record**, en tirets, peut passer derrière : la partie se lit face à ce qu'elle doit battre. Elle vient de [`GET /personal-best`](REST_API.md#get-personal-best).
+
+**Écart au record** (`pbDelta`) : la valeur actuelle moins celle du record **au même temps de chanson** (interpolée entre deux échantillons du record), car c'est avec cela qu'un score en direct doit se comparer. **Vert** quand tu es devant (ou à égalité), **rouge** quand tu es derrière. Sous l'écart, le record final (*Record 148pp*, ou *Pas encore de record*). Sans record, ou hors partie, il affiche « — ».
+
+**Écart au PP max** (`ppDelta`) : les PP en cours moins le **plus haut PP** que tu as atteint sur cette map, toutes parties solo terminées confondues (pas seulement celle du record : une partie au score plus bas mais aux PP plus hauts compte). **Vert** quand tu es au niveau de ce maximum ou au-dessus (un nouveau record de PP), **rouge** en dessous ; sous l'écart, le maximum (*Max de la map 152pp*). Sans maximum connu, ou hors partie, il affiche « — ». Le maximum vient de `maxPp`, dans [`GET /personal-best`](REST_API.md#get-personal-best).
+
+**Graphe PP (formes)** (`ppGraph`) : les PP de la partie au fil de la chanson, dans la forme choisie : `line` (ligne), `area` (aire), `step` (marches), `bars` (barres), `dots` (points) ou `ring` (anneau). L'anneau n'a pas d'axe du temps : il montre les PP en cours comme part des PP d'une partie parfaite sur la map (`difficulty.pp100`).
+
+> [!NOTE] Le record est le meilleur score **terminé en solo que l'application a vu** : les parties jouées avant son installation sont inconnues. Voir [`GET /personal-best`](REST_API.md#get-personal-best).
+
+| Widget | Option | Défaut | Effet |
+| --- | --- | --- | --- |
+| `hitErrorBar` | `windows` | `true` | Dessine les bandes des fenêtres de hit (osu!standard seulement). |
+| `hitErrorBar` | `colorize` | `true` | Colore chaque trait selon son jugement (osu!standard seulement). |
+| `hitErrorBar` | `count` | `30` | Nombre de hits récents affichés (5 à 100). |
+| `hitErrorBar` | `average` | `true` | Affiche le repère de la moyenne. |
+| `hitErrorBar` | `labels` | `false` | Écrit « Tôt » et « Tard » aux deux bouts. |
+| `playGraph` | `metric` | `pp` | La valeur tracée : `pp`, `accuracy` (précision) ou `score`. |
+| `playGraph` | `style` | `area` | `line` (ligne seule) ou `area` (ligne et aire remplie). |
+| `playGraph` | `color` | `#f472b6` | Couleur de la courbe. |
+| `playGraph` | `lineWidth` | `3` | Épaisseur du trait, de 1 à 10. |
+| `playGraph` | `record` | `true` | Dessine la courbe du record, en tirets. |
+| `playGraph` | `showValue` | `true` | Écrit la valeur actuelle dans le coin. |
+| `pbDelta` | `metric` | `pp` | Ce qu'on compare : `pp`, `accuracy` ou `score`. |
+| `pbDelta` | `showRecord` | `true` | Affiche le record final sous l'écart. |
+| `pbDelta` | `ahead` | `#4ade80` | Couleur quand tu es devant le record. |
+| `pbDelta` | `behind` | `#f87171` | Couleur quand tu es derrière. |
+| `ppDelta` | `showMax` | `true` | Affiche le PP max sous l'écart. |
+| `ppDelta` | `ahead` | `#4ade80` | Couleur quand tu es au niveau du max ou au-dessus. |
+| `ppDelta` | `behind` | `#f87171` | Couleur quand tu es en dessous. |
+| `ppGraph` | `shape` | `area` | `line`, `area`, `step`, `bars`, `dots` ou `ring`. |
+| `ppGraph` | `color` | `#f472b6` | Couleur du tracé. |
+| `ppGraph` | `lineWidth` | `3` | Épaisseur du trait (ou taille des points), de 1 à 10. |
+| `ppGraph` | `showValue` | `true` | Écrit les PP en cours (dans le coin, ou au centre de l'anneau). |
 
 ## Beatmap
 

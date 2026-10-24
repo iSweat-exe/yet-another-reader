@@ -67,6 +67,7 @@ export const MOCK_GHOST: PersonalBestGhost = {
   mods: ["HD", "DT"],
   playedAt: 1_760_000_000_000,
   samples: Array.from({ length: 70 }, (_, i) => [i * 1000, (1_500_000 * i) / 69, 20 + (168 * i) / 69, 0.99 - (0.008 * i) / 69]),
+  maxPp: 195,
 };
 
 export function mockState(t: number): GameState {

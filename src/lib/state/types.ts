@@ -179,6 +179,8 @@ export interface PersonalBest {
 export interface PersonalBestGhost extends PersonalBest {
   /** `[songTimeMs, score, pp, accuracy]`, in song-time order. */
   samples: number[][];
+  /** The highest PP of any completed solo play of this beatmap the app has seen. */
+  maxPp: number;
 }
 
 export interface GameState {

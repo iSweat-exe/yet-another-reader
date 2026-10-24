@@ -62,7 +62,7 @@ export function yRange(values: readonly number[], metric: Metric): [number, numb
   return [0, metric === "score" ? Math.ceil(top / 1000) * 1000 : Math.ceil(top / 10) * 10];
 }
 
-function project(p: Point, d: Domain, w: number, h: number): [number, number] {
+export function project(p: Point, d: Domain, w: number, h: number): [number, number] {
   const fx = d.x1 === d.x0 ? 0 : (p.t - d.x0) / (d.x1 - d.x0);
   const fy = d.y1 === d.y0 ? 0 : (p.value - d.y0) / (d.y1 - d.y0);
   return [Math.min(Math.max(fx, 0), 1) * w, h - Math.min(Math.max(fy, 0), 1) * h];

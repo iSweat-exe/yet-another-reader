@@ -28,6 +28,7 @@ Les conventions communes (`camelCase`, `null`, unités) sont dans le [guide](API
 | `spectators` | `Spectator[]` | Les utilisateurs qui regardent la partie du joueur connecté (100 au plus). Vide si personne ne regarde. |
 | `spectatorCount` | int | Nombre de spectateurs (non plafonné). |
 | `gameplay` | `Gameplay` \| null | Partie en cours. |
+| `personalBest` | `PersonalBest` \| null | Le meilleur score de la beatmap sélectionnée vu par l'application (sans les `samples` ni `maxPp`). `null` avant le premier. N'est pas un topic du [WebSocket](WEBSOCKET.md#connexion). |
 
 **`Screen`** : `unknown` · `menu` · `songSelect` · `playing` · `results` · `editor` ·
 `multiplayer` · `other`
@@ -170,6 +171,21 @@ spectateur d'osu!lazer ; la liste est vide hors connexion ou si personne ne rega
 `None`, `Miss`, `Meh`, `Ok`, `Good`, `Great`, `Perfect`, `SmallTickMiss`, `SmallTickHit`,
 `LargeTickMiss`, `LargeTickHit`, `SmallBonus`, `LargeBonus`, `IgnoreMiss`, `IgnoreHit`,
 `ComboBreak`, `SliderTailHit`, `LegacyComboIncrease` (et `Result<n>` pour une valeur inconnue).
+
+## `PersonalBest`
+
+Le meilleur score **terminé en solo** de la beatmap sélectionnée, tel que l'application l'a vu (les parties jouées avant qu'elle tourne sont inconnues ; un replay, une partie échouée ou quittée ne compte jamais ; il faut un score strictement supérieur pour le remplacer). Dans `GameState`, il n'a ni `samples` ni `maxPp` ; [`GET /personal-best`](REST_API.md#get-personal-best) les ajoute.
+
+| Champ | Type | Description |
+| --- | --- | --- |
+| `score` | int | Score final (avec le multiplicateur de mods). |
+| `pp` | number | PP à la fin de la partie (`0` s'ils n'ont pas pu être calculés). |
+| `accuracy` | number | `0.0`–`1.0`. |
+| `maxCombo` | int | Meilleur combo de la partie. |
+| `mods` | string[] | Acronymes des mods de la partie. |
+| `playedAt` | int | Fin de la partie, en millisecondes depuis l'epoch Unix. |
+| `samples` | number[][] | Seulement sur `GET /personal-best` : `[tempsDeLaChansonMs, score, pp, précision]`, environ un par seconde de chanson, dans l'ordre du temps. |
+| `maxPp` | number | Seulement sur `GET /personal-best` : le plus haut PP d'une partie solo terminée de la beatmap vue par l'application, même si son score est plus bas que celui du record (au moins `pp`). |
 
 ## PP et étoiles
 

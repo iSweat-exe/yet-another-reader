@@ -16,8 +16,9 @@ use std::time::Duration;
 
 use lazer_reader::input::InputState;
 use lazer_reader::model::{
-    Assets, Beatmap, Difficulty, DifficultyGraph, GameState, Gameplay, Hits, Paths, PlayingState,
-    Pp, ReaderStatus, Screen, Spectator, Time, TimeSource, User, UserStatistics,
+    Assets, Beatmap, Difficulty, DifficultyGraph, GameState, Gameplay, Hits, Paths, PersonalBest,
+    PersonalBestGhost, PlayingState, Pp, ReaderStatus, Screen, Spectator, Time, TimeSource, User,
+    UserStatistics,
 };
 use overlay_server::{ApiSettings, Hub};
 
@@ -168,11 +169,39 @@ fn base(screen: Screen, screen_type: &str) -> GameState {
         spectators: spectators(),
         spectator_count: 3,
         gameplay: None,
+        personal_best: Some(record().best),
+    }
+}
+
+/// A made-up personal best: a steady 66 000 points over the 36 seconds of the scripted play.
+fn record() -> PersonalBestGhost {
+    PersonalBestGhost {
+        best: PersonalBest {
+            score: 66_000,
+            pp: 148.2,
+            accuracy: 0.9812,
+            max_combo: 301,
+            mods: vec!["HD".into(), "DT".into()],
+            played_at: 1_760_000_000_000,
+        },
+        samples: (0..=9)
+            .map(|i| {
+                let k = f64::from(i);
+                [
+                    k * 4_000.0,
+                    66_000.0 * k / 9.0,
+                    100.0 + 48.2 * k / 9.0,
+                    0.985 - 0.004 * k / 9.0,
+                ]
+            })
+            .collect(),
+        max_pp: 152.7,
     }
 }
 
 fn playing(step: i32, paused: bool) -> GameState {
-    let combo = step * 7;
+    // The combo breaks on the step of the first miss.
+    let combo = if step >= 7 { (step - 6) * 7 } else { step * 7 };
     let great = step * 7;
     let mut state = base(Screen::Playing, "osu.Game.Screens.Play.SoloPlayer");
     state.playing = PlayingState::Playing;
@@ -213,7 +242,14 @@ fn playing(step: i32, paused: bool) -> GameState {
             ss: 255.4,
         }),
         unstable_rate: Some(144.6),
-        hit_errors: vec![-3.78, -3.32, -1.24, 4.5, 8.1],
+        hit_errors: vec![
+            -3.78,
+            -3.32,
+            -1.24,
+            4.5,
+            8.1,
+            f32::from(i16::try_from(step).unwrap_or(0)) * 1.5 - 6.0,
+        ],
     });
     state
 }
@@ -298,6 +334,7 @@ async fn main() -> std::io::Result<()> {
         input_poll_interval_ms: 2,
         port,
     });
+    hub.set_ghost(Some(std::sync::Arc::new(record())));
     let (storage, widgets) = fake_storage();
     // One imported picture (a 1x1 PNG), served at /api/v1/images/{id}.
     let images = storage.join("images");

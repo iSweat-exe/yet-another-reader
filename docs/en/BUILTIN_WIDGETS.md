@@ -18,7 +18,7 @@ These widgets read the current play; outside a play, they display neutral values
 > [!SCREENSHOT] gallery-gameplay
 > Sheet of all the widgets of the Gameplay category over a play background (simulated data), each with its type name as
 > a caption: score, combo, maxCombo, accuracy, rank, pp, ppFc, ppSs, ppMax, ppTable, playStatus, ur, health, progress, great,
-> ok, meh, miss, hitErrors.
+> ok, meh, miss, hitErrors, hitErrorBar, playGraph, pbDelta.
 
 | Type | Name | Displays | Default size |
 | --- | --- | --- | --- |
@@ -41,9 +41,60 @@ These widgets read the current play; outside a play, they display neutral values
 | `meh` | Meh (50) | The number of 50s. | 100 × 80 |
 | `miss` | Miss | The number of misses. | 100 × 80 |
 | `hitErrors` | Timing errors | The latest timing errors, as marks on a line. | 500 × 36 |
+| `hitErrorBar` | Hit error bar | The timing errors on the scale of the hit windows, as in osu!lazer. | 500 × 48 |
+| `playGraph` | PP / accuracy graph | PP, accuracy or score along the song, with the record's curve as an option. | 520 × 140 |
+| `pbDelta` | Gap to record | The gap between the play and your record, **at the same point of the song**. | 280 × 84 |
+| `ppDelta` | Gap to max PP | The gap between your current PP and the **highest PP** you have had on this map. | 280 × 84 |
+| `ppGraph` | PP graph (shapes) | The play's PP along the song, as a line, area, steps, bars, dots or ring. | 420 × 140 |
 
 > `hitCounts` ("300 / 100 / 50 / miss" in a single widget) still exists: the classic layout and the layouts already saved use
 > it. It is no longer offered in the palette; use the four separate widgets above for new layouts.
+
+In the palette, `hitErrorBar` is in the *Judgements* group; `playGraph` and `pbDelta` make up the *Progress and record* group; `ppDelta` and `ppGraph` are in the PP group, with `pp`, `ppFc`, `ppSs`, `ppMax` and `ppTable`.
+
+### Hit error bar, graph and record
+
+**Hit error bar** (`hitErrorBar`): like osu!lazer's meter, it places every hit on a timing scale, early on the left, late on the right, zero in the middle.
+
+- The coloured **bands** are the hit windows: *great* (blue), *ok* (green) and *meh* (yellow). They come from the **effective OD**: the map's, ×1.4 (capped at 10) with **HR**, ×0.5 with **EZ**, and the value forced by **Difficulty Adjust** when it is active (it wins over HR and EZ).
+- The bands are only drawn for **osu!standard**. In the other modes, the bar keeps a fixed ±120 ms scale, with no bands and no colours by judgement.
+- Every hit leaves a **tick**, coloured by its judgement; the newest is **bolder**, the older ones fade.
+- A **marker** (triangle) shows the **average** of the errors: you see at a glance whether you play rather early or late.
+
+**PP / accuracy graph** (`playGraph`): the chosen value, drawn **as the play unfolds**, across the whole width of the map (from its first to its last object). The **record's** curve, dashed, can sit behind it: the play is read against what it has to beat. It comes from [`GET /personal-best`](REST_API.md#get-personal-best).
+
+**Gap to record** (`pbDelta`): the current value minus the record's **at the same song time** (interpolated between two samples of the record), because that is what a live score should be compared with. **Green** when you are ahead (or level), **red** when you are behind. Under the gap, the record's final value (*Record 148pp*, or *No record yet*). Without a record, or outside a play, it shows "—".
+
+**Gap to max PP** (`ppDelta`): the current PP minus the **highest PP** you have reached on this map, across every completed solo play (not only the record's: a play with a lower score but higher PP counts). **Green** when you are level with that maximum or above it (a new PP high), **red** below it; under the gap, the maximum (*Map max 152pp*). Without a known maximum, or outside a play, it shows "—". The maximum comes from `maxPp`, in [`GET /personal-best`](REST_API.md#get-personal-best).
+
+**PP graph (shapes)** (`ppGraph`): the play's PP along the song, in the chosen shape: `line`, `area`, `step`, `bars`, `dots` or `ring`. The ring has no time axis: it shows the current PP as a share of the PP of a perfect play on the map (`difficulty.pp100`).
+
+> [!NOTE] The record is the best **completed solo score the application has seen**: plays made before its installation are unknown. See [`GET /personal-best`](REST_API.md#get-personal-best).
+
+| Widget | Option | Default | Effect |
+| --- | --- | --- | --- |
+| `hitErrorBar` | `windows` | `true` | Draws the bands of the hit windows (osu!standard only). |
+| `hitErrorBar` | `colorize` | `true` | Colours every tick by its judgement (osu!standard only). |
+| `hitErrorBar` | `count` | `30` | Number of recent hits shown (5 to 100). |
+| `hitErrorBar` | `average` | `true` | Shows the average marker. |
+| `hitErrorBar` | `labels` | `false` | Writes "Early" and "Late" at both ends. |
+| `playGraph` | `metric` | `pp` | The plotted value: `pp`, `accuracy` or `score`. |
+| `playGraph` | `style` | `area` | `line` (line only) or `area` (line and filled area). |
+| `playGraph` | `color` | `#f472b6` | Colour of the curve. |
+| `playGraph` | `lineWidth` | `3` | Thickness of the line, from 1 to 10. |
+| `playGraph` | `record` | `true` | Draws the record's curve, dashed. |
+| `playGraph` | `showValue` | `true` | Writes the current value in the corner. |
+| `pbDelta` | `metric` | `pp` | What is compared: `pp`, `accuracy` or `score`. |
+| `pbDelta` | `showRecord` | `true` | Shows the record's final value under the gap. |
+| `pbDelta` | `ahead` | `#4ade80` | Colour when you are ahead of the record. |
+| `pbDelta` | `behind` | `#f87171` | Colour when you are behind. |
+| `ppDelta` | `showMax` | `true` | Shows the max PP under the gap. |
+| `ppDelta` | `ahead` | `#4ade80` | Colour when you are level with the max or above it. |
+| `ppDelta` | `behind` | `#f87171` | Colour when you are below it. |
+| `ppGraph` | `shape` | `area` | `line`, `area`, `step`, `bars`, `dots` or `ring`. |
+| `ppGraph` | `color` | `#f472b6` | Colour of the drawing. |
+| `ppGraph` | `lineWidth` | `3` | Thickness of the line (or size of the dots), from 1 to 10. |
+| `ppGraph` | `showValue` | `true` | Writes the current PP (in the corner, or in the middle of the ring). |
 
 ## Beatmap
 
