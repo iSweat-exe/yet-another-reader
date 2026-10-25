@@ -1,6 +1,4 @@
-//! Phase 0 probe: attach to osu!lazer and print what we can see.
-//!
-//! Usage: `lazer-probe [census [filter] | find <type-substring>]`
+//! Low-level commands: poke at the game's managed heap (types, objects, paths, raw memory).
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -67,7 +65,7 @@ fn inputs(interval_ms: u64) -> Result<()> {
     }
 }
 
-fn main() -> Result<()> {
+pub fn run() -> Result<()> {
     if std::env::args().nth(1).as_deref() == Some("inputs-debug") {
         let mut session = lazer_reader::session::LazerSession::connect()?;
         session.snapshot()?;
@@ -96,14 +94,8 @@ fn main() -> Result<()> {
     let process = match Process::attach() {
         Ok(p) => p,
         Err(ReaderError::ProcessNotFound) => {
-            println!("osu!lazer is not running; start it and re-run the probe.");
-            // Still useful: show the installed build so version detection can be checked.
-            if let Some(dir) = lazer_reader::paths::lazer_install_dir() {
-                let exe = dir.join(lazer_reader::paths::game_exe_name());
-                if let Ok(v) = read_product_version(&exe) {
-                    println!("installed: {v}  (profile key {})", v.profile_key());
-                }
-            }
+            println!("No osu!lazer build is running; start it and re-run the probe.");
+            crate::status::print_installed();
             return Ok(());
         }
         Err(e) => return Err(e.into()),
@@ -377,7 +369,7 @@ fn main() -> Result<()> {
             }
         }
         _ => println!(
-            "commands: watch [ms] | inputs [ms] | type <dll> <T> | instances <dll> <T> | obj <addr> [filter] | path <addr> <a.b.c> | scan <qword> | regions | readbench | peek <addr> [len] | fd <addr> [n]"
+            "low-level commands: watch [ms] | inputs [ms] | type <dll> <T> | instances <dll> <T> | obj <addr> [filter] | path <addr> <a.b.c> | scan <qword> | regions | readbench | peek <addr> [len] | fd <addr> [n]"
         ),
     }
     Ok(())

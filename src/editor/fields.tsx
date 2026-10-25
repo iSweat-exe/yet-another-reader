@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useId, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Icon, type IconName } from "../components/icons/Icon";
 import { Select } from "../components/select/Select";
 
@@ -91,13 +91,46 @@ export function NumberInput({ value, onChange, min, max, step = 1, label, prefix
   );
 }
 
+/** How long the colour must stay still before it is applied: dragging in the picker sends dozens of values a second. */
+const COLOR_DEBOUNCE_MS = 200;
+
 export function ColorInput({ value, onChange, label }: { value: string; onChange: (value: string) => void; label: string }) {
+  // What the controls show right now; the layout only gets the colour once the pointer pauses (or the picker closes).
+  const [draft, setDraft] = useState(value);
+  const pending = useRef<string | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+  const latest = useRef(onChange);
+  useEffect(() => {
+    latest.current = onChange;
+  });
+
+  const flush = () => {
+    window.clearTimeout(timer.current);
+    if (pending.current !== null) {
+      const next = pending.current;
+      pending.current = null;
+      latest.current(next);
+    }
+  };
+  const change = (next: string) => {
+    setDraft(next);
+    pending.current = next;
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(flush, COLOR_DEBOUNCE_MS);
+  };
+  // A colour that comes from elsewhere (undo, another widget selected) replaces the draft, unless one is waiting to be applied.
+  useEffect(() => {
+    if (pending.current === null) setDraft(value);
+  }, [value]);
+  // Leaving with a colour not applied yet would lose it.
+  useEffect(() => flush, []);
+
   // `<input type=color>` only accepts #rrggbb.
-  const hex = /^#[0-9a-f]{6}$/i.test(value) ? value : "#ffffff";
+  const hex = /^#[0-9a-f]{6}$/i.test(draft) ? draft : "#ffffff";
   return (
     <div className="flex items-center gap-1.5">
-      <input aria-label={label} type="color" value={hex} onChange={(e) => onChange(e.target.value)} className="size-8 cursor-pointer rounded-md border-0 bg-transparent p-0.5" />
-      <input aria-label={`${label} (hex)`} value={value} onChange={(e) => onChange(e.target.value)} spellCheck={false} className={`${controlClass} min-h-8 w-20 font-mono text-xs`} />
+      <input aria-label={label} type="color" value={hex} onChange={(e) => change(e.target.value)} onBlur={flush} className="size-8 cursor-pointer rounded-md border-0 bg-transparent p-0.5" />
+      <input aria-label={`${label} (hex)`} value={draft} onChange={(e) => change(e.target.value)} onBlur={flush} spellCheck={false} className={`${controlClass} min-h-8 w-20 font-mono text-xs`} />
     </div>
   );
 }

@@ -30,17 +30,23 @@ Un **générateur** crée le dossier d'un widget qui marche déjà. Deux façons
 ```bash
 npm run widget:new -- "Mon widget"
 npm run widget:new -- "Mon widget" --dir ./mes-widgets
+npm run widget:new -- "Mon widget" --lang fr
 ```
 
 Sans `--dir`, le widget est créé dans le **dossier des widgets de l'application** (sous Windows : `%APPDATA%\io.github.isweat-exe.yet-another-reader\widgets`). Le nom (40 caractères au plus) devient le nom du widget, et son dossier en
 est une version en minuscules, mots séparés par des tirets (`Mon widget !` donne `mon-widget`). Un dossier qui existe déjà n'est **jamais touché** : le nom suivant prend un suffixe (`mon-widget-2`).
 
-Le modèle, copié depuis `docs/examples/widget-template/`, contient deux fichiers :
+Le modèle, copié depuis `docs/examples/widget-template/`, est un point de départ **propre et vide**, livré avec toute la documentation nécessaire :
 
-- `manifest.json` : un widget de 320 × 120 avec **quatre options** : `label` (texte), `color` (couleur), `flashOnMiss` (case à cocher) et `size` (nombre) ;
-- `index.html` : une page qui affiche le **combo en direct**, lu sur le [WebSocket de l'état](WEBSOCKET.md#flux-de-létat) (`/api/v1/ws?topics=gameplay&events=false`), et qui **clignote en rouge sur un miss**, lu sur le [WebSocket des événements](WEBSOCKET.md#flux-des-événements) (`/api/v1/events/ws?names=miss,comboBreak`). Les options viennent de l'URL au premier affichage, puis des messages `yar:options`.
+- `manifest.json` : un widget de 320 × 120 **sans option** (ajoute les tiens dans `options`) ;
+- `index.html`, `style.css` et `script.js` : une page transparente qui ne dessine rien. `script.js` est déjà branché : il lit l'adresse de l'API et les options dans l'URL, reçoit les messages `yar:options`, suit l'[état](WEBSOCKET.md#flux-de-létat) (`/api/v1/ws`, limité aux sujets `gameplay,beatmap,mods,time`) et les [événements](WEBSOCKET.md#flux-des-événements) (`/api/v1/events/ws`), et appelle `draw()` et `onEvent()` que tu remplis ;
+- `types.d.ts` : les types de l'état et des événements, pour la complétion dans ton éditeur (`// @ts-check` est déjà en tête de `script.js`) ;
+- `README.md` : comment le widget fonctionne, comment ajouter une option, la taille, comment l'essayer et le partager, dans ta langue (français ou anglais) ;
+- `docs/` : une copie de cette page, du [modèle de données](DATA_MODEL.md), des [routes REST](REST_API.md) et du [WebSocket](WEBSOCKET.md), pour que le widget voyage avec sa documentation.
 
-Une fois créé, le widget est dans la palette : ajoute-le au layout, puis modifie `index.html`.
+Dans l'éditeur, la langue du README et des docs est celle de l'interface (français ou anglais ; les autres langues reçoivent l'anglais). En ligne de commande, ajoute `--lang fr` (anglais par défaut).
+
+Une fois créé, le widget est dans la palette : ajoute-le au layout, puis modifie `script.js`.
 
 ## Rechargement à chaud
 

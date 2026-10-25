@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/icons/Icon";
-import { useT } from "../../i18n";
+import {useT, useLang } from "../../i18n";
 import { Select } from "../../components/select/Select";
 import { buildBundle, ShareError } from "../../lib/layouts/layoutShare";
 import { MAX_CODE_CHARS, toShareCode } from "../../lib/layouts/layoutBundle";
@@ -320,6 +320,7 @@ function formatBytes(bytes: number): string {
 /** Creates a community widget from the template, then says where to edit it (the overlay reloads it on save). */
 export function NewWidgetDialog({ onClose }: { onClose: () => void }) {
   const t = useT();
+  const lang = useLang();
   const errorText = useErrorText();
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -329,7 +330,7 @@ export function NewWidgetDialog({ onClose }: { onClose: () => void }) {
 
   const submit = async () => {
     try {
-      const id = await invoke<string>("create_widget", { name: name.trim() });
+      const id = await invoke<string>("create_widget", { name: name.trim(), lang: lang === "fr" ? "fr" : "en" });
       const dir = await invoke<string>("get_widgets_dir");
       setCreated({ id, dir });
     } catch (e) {

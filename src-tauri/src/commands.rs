@@ -205,9 +205,9 @@ pub fn open_widgets_folder(ctx: Ctx<'_>) -> Result<(), String> {
 ///
 /// The widgets folder is watched, so the editor's list and any open overlay pick it up on their own.
 #[tauri::command]
-pub fn create_widget(ctx: Ctx<'_>, name: String) -> Result<String, String> {
+pub fn create_widget(ctx: Ctx<'_>, name: String, lang: Option<String>) -> Result<String, String> {
     std::fs::create_dir_all(&ctx.widgets_dir).map_err(|e| e.to_string())?;
-    overlay_server::widgets::scaffold(&ctx.widgets_dir, &name)
+    overlay_server::widgets::scaffold(&ctx.widgets_dir, &name, lang.as_deref().unwrap_or("en"))
 }
 
 /// Path of the widgets folder, for display.

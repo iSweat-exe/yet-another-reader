@@ -21,6 +21,22 @@ pub struct LazerVersion {
 }
 
 impl LazerVersion {
+    /// Placeholder for a build whose exe carries no parseable version (a development build).
+    #[must_use]
+    pub fn unknown() -> Self {
+        Self {
+            release: "0.0.0".to_owned(),
+            channel: Some("dev".to_owned()),
+            commit: None,
+        }
+    }
+
+    /// Human name of the release stream: `lazer`, `tachyon` or whatever the build calls itself.
+    #[must_use]
+    pub fn stream(&self) -> &str {
+        self.channel.as_deref().unwrap_or("unknown")
+    }
+
     /// Key used to look up an offsets profile (`<release>` or `<release>+<short commit>`).
     #[must_use]
     pub fn profile_key(&self) -> String {
@@ -96,6 +112,13 @@ mod tests {
         let v: LazerVersion = "2026.1005.1".parse().unwrap();
         assert_eq!(v.commit, None);
         assert_eq!(v.channel, None);
+    }
+
+    #[test]
+    fn stream_should_name_tachyon_builds() {
+        let v: LazerVersion = "2026.1013.0-tachyon+c752ffb2".parse().unwrap();
+        assert_eq!(v.stream(), "tachyon");
+        assert_eq!(LazerVersion::unknown().stream(), "dev");
     }
 
     #[test]

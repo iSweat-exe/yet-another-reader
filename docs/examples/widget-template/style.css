@@ -1,0 +1,22 @@
+/* The overlay is drawn over the game: keep the page transparent. */
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  /* Options can set CSS variables from script.js (see applyOptions). */
+  color: var(--color, #ffffff);
+  font: 700 var(--size, 48px) / 1 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  /* Keeps the text readable over a bright background. */
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.85);
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+}

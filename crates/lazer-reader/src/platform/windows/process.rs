@@ -21,8 +21,7 @@ use windows::Win32::System::Threading::{
 use windows::core::PWSTR;
 
 use crate::error::{ReaderError, Result};
-use crate::platform::paths::game_exe_name;
-pub use crate::platform::types::{Module, Region};
+pub use crate::platform::types::{Found, Module, Region};
 
 /// Loaded only by lazer; osu!stable shares the exe name but not this assembly.
 const LAZER_MARKER_MODULE: &str = "osu.Game.dll";
@@ -46,21 +45,85 @@ impl Drop for Process {
 }
 
 impl Process {
-    /// Finds a running osu!lazer and opens it for reading.
+    /// Finds a running lazer-family build (lazer, tachyon, a development build, ...) and opens it
+    /// for reading. Any process that loads `osu.Game.dll` qualifies, whatever its executable is
+    /// called; `YAR_GAME_PID` forces one process when several builds run side by side.
     pub fn attach() -> Result<Self> {
-        let mut saw_stable = None;
-        for pid in pids_by_exe(game_exe_name())? {
-            let process = Self::open(pid)?;
+        let forced = std::env::var("YAR_GAME_PID")
+            .ok()
+            .and_then(|v| v.trim().parse::<u32>().ok());
+        let mut rejected = None;
+        for (pid, name) in candidate_pids()? {
+            if forced.is_some_and(|f| f != pid) {
+                continue;
+            }
+            let process = match Self::open(pid) {
+                Ok(p) => p,
+                // Only a process that looks like the game must be readable; others are best effort.
+                Err(e) if is_osu_name(&name) => return Err(e),
+                Err(_) => continue,
+            };
             if process.module(LAZER_MARKER_MODULE)?.is_some() {
                 return Ok(process);
             }
-            saw_stable = Some(pid);
+            rejected = Some(pid);
         }
         Err(
-            saw_stable.map_or(ReaderError::ProcessNotFound, |pid| ReaderError::NotLazer {
+            rejected.map_or(ReaderError::ProcessNotFound, |pid| ReaderError::NotLazer {
                 pid,
             }),
         )
+    }
+
+    /// Opens a specific process, checking that it is a lazer-family build.
+    pub fn attach_pid(pid: u32) -> Result<Self> {
+        let process = Self::open(pid)?;
+        if process.module(LAZER_MARKER_MODULE)?.is_some() {
+            Ok(process)
+        } else {
+            Err(ReaderError::NotLazer { pid })
+        }
+    }
+
+    /// Every process that might be a game build, with whether it really is one. Used by
+    /// diagnostics: it explains why nothing was attached.
+    #[must_use]
+    pub fn discover() -> Vec<Found> {
+        let Ok(pids) = candidate_pids() else {
+            return Vec::new();
+        };
+        pids.into_iter()
+            .map(|(pid, name)| match Self::open(pid) {
+                Ok(p) => match p.module(LAZER_MARKER_MODULE) {
+                    Ok(Some(_)) => Found {
+                        pid,
+                        name,
+                        is_lazer: true,
+                        note: None,
+                    },
+                    Ok(None) => Found {
+                        pid,
+                        name,
+                        is_lazer: false,
+                        note: Some(
+                            "osu.Game.dll is not loaded (osu!stable or another program)".into(),
+                        ),
+                    },
+                    Err(e) => Found {
+                        pid,
+                        name,
+                        is_lazer: false,
+                        note: Some(e.to_string()),
+                    },
+                },
+                Err(e) => Found {
+                    pid,
+                    name,
+                    is_lazer: false,
+                    note: Some(e.to_string()),
+                },
+            })
+            .collect()
     }
 
     fn open(pid: u32) -> Result<Self> {
@@ -255,7 +318,17 @@ impl Drop for Snapshot {
     }
 }
 
-fn pids_by_exe(exe: &str) -> Result<Vec<u32>> {
+/// Names a game build can run under: `osu!.exe` (lazer, tachyon), `osu.Desktop.exe` and friends
+/// (development builds), or the `dotnet` host when the game is launched through it.
+fn is_osu_name(name: &str) -> bool {
+    name.to_ascii_lowercase().starts_with("osu")
+}
+
+fn is_candidate_name(name: &str) -> bool {
+    is_osu_name(name) || name.eq_ignore_ascii_case("dotnet.exe")
+}
+
+fn candidate_pids() -> Result<Vec<(u32, String)>> {
     let snapshot = Snapshot::new(TH32CS_SNAPPROCESS, 0)?;
     let mut entry = PROCESSENTRY32W {
         dwSize: size_of::<PROCESSENTRY32W>() as u32,
@@ -265,8 +338,9 @@ fn pids_by_exe(exe: &str) -> Result<Vec<u32>> {
     // SAFETY: `entry.dwSize` is initialised and the snapshot handle is valid.
     let mut next = unsafe { Process32FirstW(snapshot.0, &mut entry) };
     while next.is_ok() {
-        if wide_to_string(&entry.szExeFile).eq_ignore_ascii_case(exe) {
-            out.push(entry.th32ProcessID);
+        let name = wide_to_string(&entry.szExeFile);
+        if is_candidate_name(&name) {
+            out.push((entry.th32ProcessID, name));
         }
         // SAFETY: same invariants as above.
         next = unsafe { Process32NextW(snapshot.0, &mut entry) };

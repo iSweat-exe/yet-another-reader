@@ -30,6 +30,7 @@ dist-ssr
 .claude
 CLAUDE.md
 .github/V1_CHECKLIST.md
+lazer-probe-pins.txt
 
 # Rust
 target

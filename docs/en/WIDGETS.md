@@ -29,17 +29,23 @@ A **generator** creates the folder of a widget that already works. Two ways to u
 ```bash
 npm run widget:new -- "My widget"
 npm run widget:new -- "My widget" --dir ./my-widgets
+npm run widget:new -- "Mon widget" --lang fr
 ```
 
 Without `--dir`, the widget is created in the **application's widgets folder** (on Windows: `%APPDATA%\io.github.isweat-exe.yet-another-reader\widgets`). The name (40 characters at most) becomes the name of the widget, and its folder is a
 lower-case version, words separated by dashes (`My widget!` gives `my-widget`). A folder that already exists is **never touched**: the next name gets a suffix (`my-widget-2`).
 
-The template, copied from `docs/examples/widget-template/`, contains two files:
+The template, copied from `docs/examples/widget-template/`, is a **clean, empty** starting point, shipped with all the documentation it needs:
 
-- `manifest.json`: a 320 × 120 widget with **four options**: `label` (text), `color` (colour), `flashOnMiss` (checkbox) and `size` (number);
-- `index.html`: a page that shows the **live combo**, read from the [state WebSocket](WEBSOCKET.md#state-stream) (`/api/v1/ws?topics=gameplay&events=false`), and that **flashes red on a miss**, read from the [events WebSocket](WEBSOCKET.md#event-stream) (`/api/v1/events/ws?names=miss,comboBreak`). The options come from the URL on first display, then from `yar:options` messages.
+- `manifest.json`: a 320 × 120 widget with **no option** (add yours to `options`);
+- `index.html`, `style.css` and `script.js`: a transparent page that draws nothing. `script.js` is already wired up: it reads the API address and the options from the URL, receives the `yar:options` messages, follows the [state](WEBSOCKET.md#state-stream) (`/api/v1/ws`, limited to the topics `gameplay,beatmap,mods,time`) and the [events](WEBSOCKET.md#event-stream) (`/api/v1/events/ws`), and calls `draw()` and `onEvent()`, which you fill in;
+- `types.d.ts`: the types of the state and of the events, for completion in your editor (`// @ts-check` is already at the top of `script.js`);
+- `README.md`: how the widget works, how to add an option, the size, how to try it and share it, in your language (French or English);
+- `docs/`: a copy of this page, of the [data model](DATA_MODEL.md), of the [REST routes](REST_API.md) and of the [WebSocket](WEBSOCKET.md), so the widget travels with its documentation.
 
-Once created, the widget is in the palette: add it to the layout, then edit `index.html`.
+In the editor, the language of the README and of the docs is the one of the interface (French or English; the other languages get English). On the command line, add `--lang fr` (English by default).
+
+Once created, the widget is in the palette: add it to the layout, then edit `script.js`.
 
 ## Hot reload
 

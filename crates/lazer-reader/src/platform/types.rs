@@ -9,6 +9,18 @@ pub struct Module {
     pub size: u32,
 }
 
+/// A running process that could be a game build, found while looking for one.
+#[derive(Debug, Clone)]
+pub struct Found {
+    pub pid: u32,
+    /// Executable file name as the process table reports it.
+    pub name: String,
+    /// Whether it loads `osu.Game.dll` (a lazer-family build) and was opened for reading.
+    pub is_lazer: bool,
+    /// Why it was ruled out or could not be opened, when it was.
+    pub note: Option<String>,
+}
+
 /// A committed, readable memory region.
 #[derive(Debug, Clone, Copy)]
 pub struct Region {

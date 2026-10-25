@@ -2,13 +2,8 @@
   "name": "__NAME__",
   "version": "0.1.0",
   "author": "",
-  "description": "A starting point: the live combo, which flashes on a miss. Edit index.html, the overlay reloads it on save.",
+  "description": "",
   "entry": "index.html",
   "defaultSize": { "w": 320, "h": 120 },
-  "options": [
-    { "key": "label", "type": "string", "label": "Label", "default": "COMBO" },
-    { "key": "color", "type": "color", "label": "Colour", "default": "#f472b6" },
-    { "key": "flashOnMiss", "type": "boolean", "label": "Flash on a miss", "default": true },
-    { "key": "size", "type": "number", "label": "Font size", "default": 64, "min": 12, "max": 200 }
-  ]
+  "options": []
 }

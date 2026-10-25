@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use crate::error::{ReaderError, Result};
 
-pub use crate::platform::types::{Module, Region};
+pub use crate::platform::types::{Found, Module, Region};
 
 /// An open handle to a running osu!lazer. Uninhabited here: it can never be built, so the
 /// methods below are unreachable and need no body.
@@ -14,6 +14,16 @@ impl Process {
     /// Always fails: this platform cannot read another process yet.
     pub fn attach() -> Result<Self> {
         Err(ReaderError::Unsupported("reading osu!lazer's memory"))
+    }
+
+    /// Always fails: this platform cannot read another process yet.
+    pub fn attach_pid(_pid: u32) -> Result<Self> {
+        Err(ReaderError::Unsupported("reading osu!lazer's memory"))
+    }
+
+    #[must_use]
+    pub fn discover() -> Vec<Found> {
+        Vec::new()
     }
 
     #[must_use]

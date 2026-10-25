@@ -138,7 +138,14 @@ impl LazerSession {
     /// Attaches to a running osu!lazer and locates the game's root object.
     pub fn connect() -> Result<Self> {
         let process = Arc::new(Process::attach()?);
-        let version = read_product_version(&process.exe_path()?)?;
+        // A development build has no usable version resource: it still reads fine.
+        let version = process
+            .exe_path()
+            .and_then(|exe| read_product_version(&exe))
+            .unwrap_or_else(|_| LazerVersion::unknown());
+        if let Ok(exe) = process.exe_path() {
+            crate::paths::set_running_exe(&exe);
+        }
         let profile = Profile::for_version(&version);
         let clr = Clr::attach(process)?;
         let module = clr.managed_module(profile.game_dll)?;
@@ -169,6 +176,21 @@ impl LazerSession {
     /// Whether the game process is still running.
     pub fn is_alive(&self) -> bool {
         self.clr.process.is_running()
+    }
+
+    /// The attached game process (read-only handle).
+    pub fn process(&self) -> &Arc<Process> {
+        &self.clr.process
+    }
+
+    /// The managed-heap reader, for tools that browse the game's objects.
+    pub fn clr(&self) -> &Clr {
+        &self.clr
+    }
+
+    /// Address of the game's root object (`osu.Game.OsuGame`).
+    pub fn root_address(&self) -> u64 {
+        self.root
     }
 
     pub fn version(&self) -> &LazerVersion {

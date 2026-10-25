@@ -187,9 +187,51 @@ fn fingerprint_into(dir: &Path, depth: usize, hash: &mut u64, budget: &mut usize
     }
 }
 
-const TEMPLATE_MANIFEST: &str =
-    include_str!("../../../docs/examples/widget-template/manifest.json");
-const TEMPLATE_PAGE: &str = include_str!("../../../docs/examples/widget-template/index.html");
+/// What a new widget is made of: the empty starting point, then the documentation that travels with it.
+/// `{lang}` in a path is replaced by the language of the person creating it.
+const TEMPLATE_FILES: &[(&str, &str)] = &[
+    (
+        "manifest.json",
+        include_str!("../../../docs/examples/widget-template/manifest.json"),
+    ),
+    (
+        "index.html",
+        include_str!("../../../docs/examples/widget-template/index.html"),
+    ),
+    (
+        "style.css",
+        include_str!("../../../docs/examples/widget-template/style.css"),
+    ),
+    (
+        "script.js",
+        include_str!("../../../docs/examples/widget-template/script.js"),
+    ),
+    (
+        "types.d.ts",
+        include_str!("../../../docs/examples/widget-template/types.d.ts"),
+    ),
+];
+const README_FR: &str = include_str!("../../../docs/examples/widget-template/fr/README.md");
+const README_EN: &str = include_str!("../../../docs/examples/widget-template/en/README.md");
+/// The API documentation, copied into the widget's `docs/` folder (French and English: the other languages read English).
+const DOCS_FR: &[(&str, &str)] = &[
+    ("WIDGETS.md", include_str!("../../../docs/WIDGETS.md")),
+    ("DATA_MODEL.md", include_str!("../../../docs/DATA_MODEL.md")),
+    ("REST_API.md", include_str!("../../../docs/REST_API.md")),
+    ("WEBSOCKET.md", include_str!("../../../docs/WEBSOCKET.md")),
+];
+const DOCS_EN: &[(&str, &str)] = &[
+    ("WIDGETS.md", include_str!("../../../docs/en/WIDGETS.md")),
+    (
+        "DATA_MODEL.md",
+        include_str!("../../../docs/en/DATA_MODEL.md"),
+    ),
+    ("REST_API.md", include_str!("../../../docs/en/REST_API.md")),
+    (
+        "WEBSOCKET.md",
+        include_str!("../../../docs/en/WEBSOCKET.md"),
+    ),
+];
 const NAME_PLACEHOLDER: &str = "__NAME__";
 const MAX_NAME_CHARS: usize = 40;
 
@@ -208,8 +250,10 @@ pub fn slug(name: &str) -> String {
 
 /// Creates a new widget folder from the template and returns its id (the folder name).
 ///
-/// An existing folder is never touched: a taken name gets a numeric suffix.
-pub fn scaffold(dir: &Path, name: &str) -> Result<String, String> {
+/// The widget starts empty (a manifest without options, a page that draws nothing, `script.js` already connected to
+/// the state and the events) and carries its documentation: a `README.md` and the API pages in `docs/`, in French for
+/// `lang == "fr"` and in English otherwise. An existing folder is never touched: a taken name gets a numeric suffix.
+pub fn scaffold(dir: &Path, name: &str, lang: &str) -> Result<String, String> {
     let name = name.trim();
     if name.is_empty() || name.chars().count() > MAX_NAME_CHARS {
         return Err("invalidName".into());
@@ -225,19 +269,33 @@ pub fn scaffold(dir: &Path, name: &str) -> Result<String, String> {
         n += 1;
     }
     let folder = dir.join(&id);
-    std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+    let french = lang == "fr";
+    let docs = if french { DOCS_FR } else { DOCS_EN };
+    std::fs::create_dir_all(folder.join("docs")).map_err(|e| e.to_string())?;
     let json_name = serde_json::to_string(name).map_err(|e| e.to_string())?;
-    // `to_string` quotes the name: the template already has the quotes around its placeholder.
-    let manifest = TEMPLATE_MANIFEST.replace(&format!("\"{NAME_PLACEHOLDER}\""), &json_name);
-    let page = TEMPLATE_PAGE.replace(
-        NAME_PLACEHOLDER,
-        &name
-            .replace('&', "&amp;")
-            .replace('<', "&lt;")
-            .replace('>', "&gt;"),
-    );
-    std::fs::write(folder.join("manifest.json"), manifest).map_err(|e| e.to_string())?;
-    std::fs::write(folder.join("index.html"), page).map_err(|e| e.to_string())?;
+    let html_name = name
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;");
+    let write = |path: std::path::PathBuf, text: String| {
+        std::fs::write(path, text).map_err(|e| e.to_string())
+    };
+    for (file, text) in TEMPLATE_FILES {
+        // `to_string` quotes the name: the manifest already has the quotes around its placeholder.
+        let filled = match *file {
+            "manifest.json" => text.replace(&format!("\"{NAME_PLACEHOLDER}\""), &json_name),
+            _ => text.replace(NAME_PLACEHOLDER, &html_name),
+        };
+        write(folder.join(file), filled)?;
+    }
+    let readme = if french { README_FR } else { README_EN };
+    write(
+        folder.join("README.md"),
+        readme.replace(NAME_PLACEHOLDER, name),
+    )?;
+    for (file, text) in docs {
+        write(folder.join("docs").join(file), (*text).to_owned())?;
+    }
     Ok(id)
 }
 
@@ -326,31 +384,64 @@ mod tests {
     #[test]
     fn scaffold_should_create_a_widget_the_scan_accepts() {
         let dir = temp_dir("scaffold");
-        let id = scaffold(&dir, "My <cool> widget").unwrap();
+        let id = scaffold(&dir, "My <cool> widget", "en").unwrap();
         assert_eq!(id, "my-cool-widget");
         let found = scan(&dir);
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].name, "My <cool> widget");
-        assert_eq!(found[0].options.len(), 4);
+        assert!(found[0].options.is_empty());
         let page = std::fs::read_to_string(dir.join(&id).join("index.html")).unwrap();
         assert!(page.contains("<title>My &lt;cool&gt; widget</title>"));
         let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
+    fn scaffold_should_ship_its_documentation_in_the_language_asked() {
+        let dir = temp_dir("scaffold-docs");
+        let en = scaffold(&dir, "Doc en", "en").unwrap();
+        let fr = scaffold(&dir, "Doc fr", "fr").unwrap();
+        for id in [&en, &fr] {
+            for file in [
+                "README.md",
+                "script.js",
+                "style.css",
+                "types.d.ts",
+                "docs/WIDGETS.md",
+                "docs/DATA_MODEL.md",
+                "docs/REST_API.md",
+                "docs/WEBSOCKET.md",
+            ] {
+                assert!(dir.join(id).join(file).is_file(), "{id}/{file}");
+            }
+        }
+        let read = |id: &str| std::fs::read_to_string(dir.join(id).join("README.md")).unwrap();
+        assert!(read(&en).starts_with("# Doc en") && read(&en).contains("hot reload"));
+        assert!(read(&fr).starts_with("# Doc fr") && read(&fr).contains("rechargement à chaud"));
+        assert!(
+            std::fs::read_to_string(dir.join(&fr).join("docs/WEBSOCKET.md"))
+                .unwrap()
+                .contains("Flux")
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn scaffold_should_not_overwrite_an_existing_widget() {
         let dir = temp_dir("scaffold-twice");
-        assert_eq!(scaffold(&dir, "Clock").unwrap(), "clock");
-        assert_eq!(scaffold(&dir, "Clock").unwrap(), "clock-2");
+        assert_eq!(scaffold(&dir, "Clock", "en").unwrap(), "clock");
+        assert_eq!(scaffold(&dir, "Clock", "en").unwrap(), "clock-2");
         let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
     fn scaffold_should_refuse_a_name_without_letters() {
         let dir = temp_dir("scaffold-bad");
-        assert_eq!(scaffold(&dir, "  ").unwrap_err(), "invalidName");
-        assert_eq!(scaffold(&dir, "???").unwrap_err(), "invalidName");
-        assert_eq!(scaffold(&dir, &"a".repeat(41)).unwrap_err(), "invalidName");
+        assert_eq!(scaffold(&dir, "  ", "en").unwrap_err(), "invalidName");
+        assert_eq!(scaffold(&dir, "???", "en").unwrap_err(), "invalidName");
+        assert_eq!(
+            scaffold(&dir, &"a".repeat(41), "en").unwrap_err(),
+            "invalidName"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 

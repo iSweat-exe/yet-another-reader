@@ -6,7 +6,7 @@ pub enum ReaderError {
     #[error("osu!lazer is not running")]
     ProcessNotFound,
 
-    #[error("process {pid} is not osu!lazer (osu.Game.dll is not loaded)")]
+    #[error("process {pid} is not a lazer build (osu.Game.dll is not loaded)")]
     NotLazer { pid: u32 },
 
     #[error("{op} failed: {message}")]
