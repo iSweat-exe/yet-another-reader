@@ -1,4 +1,4 @@
-import type { WidgetManifest, WidgetOption } from "../lib/types";
+import type { WidgetManifest, WidgetOption } from "../lib/state/types";
 
 /** Option values to use: the manifest's defaults overridden by what the layout saved. */
 export function optionValues(manifest: { options?: WidgetOption[] } | undefined, saved: Record<string, unknown> | undefined): Record<string, unknown> {

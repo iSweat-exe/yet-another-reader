@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useT } from "../i18n";
-import { Icon } from "./Icon";
+import { Icon } from "./icons/Icon";
 
 const FIELD_RING = "shadow-[0_0_0_1px_var(--ring-field)] transition-shadow duration-150 ease-out focus-within:shadow-[0_0_0_2px_var(--color-accent)]";
 
@@ -15,7 +15,7 @@ export function Group({ title, aside, children }: { title: string; aside?: React
         <h2 className="text-sm font-semibold text-ink">{title}</h2>
         {aside}
       </header>
-      <div className="divide-y divide-white/8 border-y border-white/8">{children}</div>
+      <div className="divide-y divide-wash/8 border-y border-wash/8">{children}</div>
     </section>
   );
 }
@@ -34,16 +34,17 @@ export function Row({ id, label, hint, hintTone, disabled, appear, children }: {
 }
 
 /** On/off switch. The track is 40×24; the hit area is extended to 56×40 without moving anything. */
-export function Switch({ id, checked, onChange, disabled }: { id: string; checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean }) {
+export function Switch({ id, checked, onChange, disabled, sfx }: { id: string; checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean; /** `data-sfx` of the control (`none`: the caller plays the sound itself). */ sfx?: string }) {
   return (
     <button
       id={id}
       type="button"
       role="switch"
       aria-checked={checked}
+      data-sfx={sfx}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full outline-none transition-[background-color,box-shadow,opacity] duration-150 ease-out before:absolute before:-inset-x-2 before:-inset-y-2 focus-visible:shadow-[0_0_0_2px_var(--color-surface),0_0_0_4px_var(--color-accent)] disabled:opacity-40 ${checked ? "bg-accent" : "bg-white/16"}`}
+      className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full outline-none transition-[background-color,box-shadow,opacity] duration-150 ease-out before:absolute before:-inset-x-2 before:-inset-y-2 focus-visible:shadow-[0_0_0_2px_var(--color-surface),0_0_0_4px_var(--color-accent)] disabled:opacity-40 ${checked ? "bg-accent" : "bg-wash/16"}`}
     >
       <span className={`size-[18px] rounded-full bg-white shadow-[0_1px_2px_oklch(0_0_0/0.35)] transition-transform duration-150 ease-out motion-reduce:transition-none ${checked ? "translate-x-[19px]" : "translate-x-[3px]"}`} />
     </button>
@@ -112,9 +113,13 @@ export function NumberField({ id, label, value, onChange, min, max, unit, disabl
 }
 
 /** A range input whose filled part follows the thumb (see `.range` in `index.css`). */
-export function Slider({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
-  const fill = `${((Math.min(max, Math.max(min, value)) - min) / (max - min)) * 100}%`;
-  return <input type="range" aria-label={label} min={min} max={max} step={1} value={value} onChange={(e) => onChange(Number(e.target.value))} className="range" style={{ "--fill": fill } as React.CSSProperties} />;
+export function Slider({ label, value, min, max, onChange, sfx }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void; /** `data-sfx` of the input (`none`: the caller plays the sound itself). */ sfx?: string }) {
+  const pct = (v: number) => ((Math.min(max, Math.max(min, v)) - min) / (max - min)) * 100;
+  // A range that crosses zero fills from zero (the neutral value), not from the left edge.
+  const origin = min < 0 && max > 0 ? pct(0) : 0;
+  const here = pct(value);
+  const style = { "--fill": `${Math.max(origin, here)}%`, "--lo": `${Math.min(origin, here)}%` } as React.CSSProperties;
+  return <input type="range" aria-label={label} min={min} max={max} step={1} value={value} data-sfx={sfx} onChange={(e) => onChange(Number(e.target.value))} className="range" style={style} />;
 }
 
 /** Icon-only copy button: the copy icon turns into a check (scale, opacity and blur), then goes back. */
@@ -144,7 +149,7 @@ export function CopyButton({ text }: { text: string }) {
       onClick={() => void copy()}
       aria-label={t("common.copy")}
       title={t("common.copy")}
-      className={`relative grid size-10 shrink-0 place-items-center rounded-lg outline-none transition-[color,background-color,scale] duration-150 ease-out hover:bg-white/6 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] ${copied ? "text-emerald-400" : "text-ink-dim hover:text-ink"}`}
+      className={`relative grid size-10 shrink-0 place-items-center rounded-lg outline-none transition-[color,background-color,scale] duration-150 ease-out hover:bg-wash/6 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] ${copied ? "text-emerald-400" : "text-ink-dim hover:text-ink"}`}
     >
       <Icon name="copy" className={`${swap} ${copied ? hidden : shown}`} />
       <Icon name="check" className={`${swap} ${copied ? shown : hidden}`} />

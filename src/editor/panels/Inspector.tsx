@@ -1,0 +1,358 @@
+import { useState } from "react";
+import { Icon, type IconName } from "../../components/icons/Icon";
+import { type MessageKey, useT } from "../../i18n";
+import { useReaderStore } from "../../lib/state/store";
+import type { WidgetOption } from "../../lib/state/types";
+import { Slider } from "../../components/controls";
+import { ANCHORS, type Anchor, type WidgetInstance, type WidgetStyle, alignFromAnchor, normalizeRotation, withAnchor, withAutoAnchor } from "../../overlay/model/layout";
+import { PAGES } from "../../overlay/model/pages";
+import { WIDGETS } from "../../widgets/registry";
+import { optionValues } from "../../widgets/web";
+import { imageIdOf } from "../../lib/media/images";
+import { ImageField } from "./ImageField";
+import { SourceDialog } from "./SourceDialog";
+import { Typography } from "./Typography";
+import { ColorInput, IconButton, NumberInput, Row, Section, SelectInput, Toggle, controlClass } from "../fields";
+import { averageGap, unitsOf } from "../canvas/geometry";
+import { viewWidthOf, useEditor } from "../useEditor";
+import { widgetIcon } from "../model/widgetIcons";
+
+function AnchorPicker({ value, onChange }: { value: Anchor; onChange: (anchor: Anchor) => void }) {
+  const t = useT();
+  return (
+    <div role="radiogroup" aria-label={t("editor.anchor")} className="grid shrink-0 grid-cols-3 gap-1 rounded-lg bg-surface p-1 shadow-[0_0_0_1px_var(--ring-field)]">
+      {ANCHORS.map((anchor) => (
+        <button
+          key={anchor}
+          type="button"
+          role="radio"
+          aria-checked={anchor === value}
+          title={t(`anchor.${anchor}`)}
+          aria-label={t(`anchor.${anchor}`)}
+          onClick={() => onChange(anchor)}
+          className={`flex size-8 items-center justify-center rounded-md outline-none transition-[background-color,scale] duration-150 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] ${anchor === value ? "bg-accent" : "hover:bg-wash/10"}`}
+        >
+          <span className={`size-1.5 rounded-full transition-colors duration-150 ${anchor === value ? "bg-surface" : "bg-ink-dim"}`} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A labelled action in the inspector header: the words say what it does, the icon only helps scanning. */
+function HeaderAction({ icon, label, onClick, disabled }: { icon: IconName; label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex min-h-8 min-w-0 items-center gap-1.5 rounded-md px-2 text-xs text-ink-dim shadow-[0_0_0_1px_var(--ring-field)] outline-none transition-[background-color,color,scale] duration-150 hover:bg-wash/8 hover:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] disabled:pointer-events-none disabled:opacity-35"
+    >
+      <Icon name={icon} size={14} className="shrink-0" />
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+function OptionField({ option, value, onChange }: { option: WidgetOption; value: unknown; onChange: (value: unknown) => void }) {
+  const label = option.label ?? option.key;
+  switch (option.type) {
+    case "boolean":
+      return <Toggle label={label} checked={value === true} onChange={onChange} />;
+    case "number": {
+      const current = typeof value === "number" ? value : 0;
+      const { min, max } = option;
+      // A bounded number is a slider (live, 1:1) with its exact value beside it; double-click puts it back to its default.
+      if (typeof min === "number" && typeof max === "number" && max > min && Number.isInteger(min) && Number.isInteger(max)) {
+        const reset = typeof option.default === "number" ? option.default : undefined;
+        return (
+          <>
+            <div className="w-24" onDoubleClick={reset === undefined ? undefined : () => onChange(reset)}>
+              <Slider label={label} value={Math.round(current)} min={min} max={max} onChange={onChange} />
+            </div>
+            <NumberInput label={label} value={current} min={min} max={max} className="w-14" onChange={onChange} />
+          </>
+        );
+      }
+      return <NumberInput label={label} value={current} min={min} max={max} onChange={onChange} />;
+    }
+    case "color":
+      return <ColorInput label={label} value={typeof value === "string" ? value : "#ffffff"} onChange={onChange} />;
+    case "select": {
+      const choices = (option.choices ?? []).map((c) => ({ value: JSON.stringify(c.value), label: c.label ?? String(c.value) }));
+      return <SelectInput label={label} value={JSON.stringify(value)} options={choices} onChange={(v) => onChange(JSON.parse(v) as unknown)} />;
+    }
+    default:
+      return <input aria-label={label} value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)} className={`${controlClass} min-h-8 w-36 text-left`} />;
+  }
+}
+
+/** The widget's opacity as a slider with its percentage beside it (what is stored is `0..1`). */
+function OpacityRow({ value, onChange }: { value: number; onChange: (opacity: number) => void }) {
+  const t = useT();
+  const percent = Math.round(Math.min(1, Math.max(0, value)) * 100);
+  const set = (p: number) => onChange(Math.round(p) / 100);
+  return (
+    <Row label={t("editor.opacity")}>
+      <div className="w-24">
+        <Slider label={t("editor.opacity")} value={percent} min={0} max={100} onChange={set} />
+      </div>
+      <NumberInput label={t("editor.opacity")} value={percent} min={0} max={100} className="w-14" onChange={set} />
+    </Row>
+  );
+}
+
+function SingleInspector({ widget }: { widget: WidgetInstance }) {
+  const t = useT();
+  const doc = useEditor((s) => s.doc);
+  const aspect = useEditor((s) => s.aspect);
+  const manifest = useReaderStore((s) => s.widgets.find((w) => w.id === widget.widget));
+  const { updateWidget, commit, removeSelected, duplicateSelected, copyStyle, pasteStyle } = useEditor.getState();
+  const hasStyle = useEditor((s) => s.styleClipboard !== null);
+  const viewWidth = viewWidthOf(doc, aspect);
+  const [sourceOpen, setSourceOpen] = useState(false);
+
+  const patch = (changes: Partial<WidgetInstance>) => updateWidget(widget.id, changes);
+  // 0 is the default, so it is left out of the layout; any other angle is wrapped to (-180, 180].
+  const setRotation = (degrees: number) => patch({ rotation: normalizeRotation(degrees) || undefined });
+  const style = (changes: Partial<WidgetStyle>) => patch({ style: { ...widget.style, ...changes } });
+  const isWeb = widget.type === "web";
+  const builtin = isWeb ? undefined : WIDGETS.find((w) => w.type === widget.type);
+  const values = optionValues(isWeb ? manifest : builtin, widget.options);
+  const typeLabel = isWeb ? (manifest?.name ?? widget.widget ?? "") : t(builtin?.labelKey ?? "editor.inspector");
+
+  return (
+    <>
+      <header className="space-y-3 border-b border-wash/5 px-3 py-3">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
+            <Icon name={widgetIcon(widget.type)} size={18} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <input aria-label={t("editor.name")} value={widget.name ?? ""} placeholder={typeLabel} onChange={(e) => patch({ name: e.target.value || undefined })} className="w-full truncate rounded bg-transparent px-1 py-0.5 text-sm font-medium text-ink outline-none transition-shadow duration-150 placeholder:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)]" />
+            <p className="truncate px-1 text-[0.6875rem] text-ink-dim">{typeLabel}</p>
+          </div>
+          <IconButton icon="trash" tone="danger" label={t("editor.deleteWidget")} onClick={removeSelected} />
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          <HeaderAction icon="text" label={t("editor.copyStyle")} onClick={copyStyle} />
+          <HeaderAction icon="download" label={t("editor.pasteStyle")} disabled={!hasStyle} onClick={pasteStyle} />
+          <HeaderAction icon="copy" label={t("editor.duplicateWidget")} onClick={duplicateSelected} />
+          {builtin && <HeaderAction icon="code" label={t("editor.viewSource")} onClick={() => setSourceOpen(true)} />}
+        </div>
+      </header>
+      {sourceOpen && builtin && <SourceDialog type={widget.type} name={typeLabel} onClose={() => setSourceOpen(false)} />}
+
+      <Section title={t("editor.placement")}>
+        <div className="flex items-start gap-3">
+          <AnchorPicker
+            value={widget.anchor}
+            // Picking an anchor by hand pins it: it no longer follows the widget's position.
+            onChange={(anchor) => commit({ ...doc, widgets: doc.widgets.map((w) => (w.id === widget.id ? { ...withAnchor(w, anchor, viewWidth, doc.referenceHeight), anchorLocked: true } : w)) })}
+          />
+          <div className="grid min-w-0 flex-1 grid-cols-2 gap-1.5">
+            <NumberInput label="X" prefix="X" className="w-full" value={widget.x} onChange={(x) => patch({ x })} />
+            <NumberInput label="Y" prefix="Y" className="w-full" value={widget.y} onChange={(y) => patch({ y })} />
+            <NumberInput label={t("editor.width")} prefix="W" className="w-full" value={widget.w} min={1} onChange={(w) => patch({ w })} />
+            <NumberInput label={t("editor.height")} prefix="H" className="w-full" value={widget.h} min={1} onChange={(h) => patch({ h })} />
+          </div>
+        </div>
+        <Row label={t("editor.rotation")}>
+          <div className="w-20">
+            <Slider label={t("editor.rotation")} value={widget.rotation ?? 0} min={-180} max={180} onChange={setRotation} />
+          </div>
+          <NumberInput label={t("editor.rotation")} value={widget.rotation ?? 0} step={1} className="w-14" onChange={setRotation} />
+          <IconButton icon="refresh" label={t("editor.rotationReset")} disabled={!widget.rotation} onClick={() => setRotation(0)} />
+        </Row>
+        <Row label={t("editor.anchorAuto")}>
+          <Toggle
+            label={t("editor.anchorAuto")}
+            checked={!widget.anchorLocked}
+            onChange={(auto) =>
+              commit({
+                ...doc,
+                widgets: doc.widgets.map((w) => {
+                  if (w.id !== widget.id) return w;
+                  // On: follow the position again (and re-anchor now). Off: keep the current anchor, pinned.
+                  return auto ? withAutoAnchor({ ...w, anchorLocked: undefined }, viewWidth, doc.referenceHeight) : { ...w, anchorLocked: true };
+                }),
+              })
+            }
+          />
+        </Row>
+        <p className="text-[0.6875rem] leading-snug text-ink-dim">{t(widget.anchorLocked ? "editor.anchorManualHint" : "editor.anchorAutoHint")}</p>
+      </Section>
+
+      <Section title={t("editor.pages")}>
+        <p className="text-[0.6875rem] leading-snug text-ink-dim">{t("editor.pagesHint")}</p>
+        <ul className="grid grid-cols-2 gap-x-2">
+          {PAGES.map((p) => {
+            const on = widget.pages.includes(p);
+            return (
+              <li key={p}>
+                <label className="flex min-h-9 cursor-pointer items-center gap-2 text-sm">
+                  <Toggle
+                    label={t(`page.${p}`)}
+                    checked={on}
+                    onChange={(checked) => {
+                      const next = PAGES.filter((q) => (q === p ? checked : widget.pages.includes(q)));
+                      // A widget must stay on at least one page, or it would be invisible everywhere.
+                      if (next.length > 0) patch({ pages: next });
+                    }}
+                  />
+                  {t(`page.${p}`)}
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+      </Section>
+
+      {isWeb ? (
+        <Section title={t("editor.options")}>
+          {!manifest ? (
+            <p className="text-xs text-amber-400">{t("editor.widgetMissing")}</p>
+          ) : (
+            manifest.options.map((option) => (
+              <Row key={option.key} label={option.label ?? option.key}>
+                <OptionField option={option} value={values[option.key]} onChange={(value) => patch({ options: { ...values, [option.key]: value } })} />
+              </Row>
+            ))
+          )}
+          <OpacityRow value={widget.style?.opacity ?? 1} onChange={(opacity) => style({ opacity })} />
+        </Section>
+      ) : (
+        <>
+          {builtin?.options && (
+            <Section title={t("editor.options")}>
+              {builtin.options.map((option) => {
+                const choices = option.choicesFor ? option.choicesFor(values) : option.choices?.map((c) => ({ ...c, label: t(`widget.choice.${option.key}.${String(c.value)}` as MessageKey) }));
+                if (option.type === "image") {
+                  return <ImageField key={option.key} value={imageIdOf(values[option.key])} onChange={(id) => patch({ options: { ...values, [option.key]: id } })} />;
+                }
+                return (
+                  <Row key={option.key} label={t(option.labelKey)}>
+                    <OptionField option={{ ...option, label: t(option.labelKey), choices }} value={values[option.key]} onChange={(value) => patch({ options: { ...values, ...option.alsoSet?.(value), [option.key]: value } })} />
+                  </Row>
+                );
+              })}
+            </Section>
+          )}
+        <Section title={t("editor.style")}>
+          <Row label={t("editor.color")}>
+            <ColorInput label={t("editor.color")} value={widget.style?.color ?? "#ffffff"} onChange={(color) => style({ color })} />
+          </Row>
+          <Row label={t("editor.scale")}>
+            <NumberInput label={t("editor.scale")} value={widget.style?.scale ?? 1} min={0.1} max={10} step={0.1} onChange={(scale) => style({ scale })} />
+          </Row>
+          <OpacityRow value={widget.style?.opacity ?? 1} onChange={(opacity) => style({ opacity })} />
+          <Row label={t("editor.textAlign")}>
+            <SelectInput
+              label={t("editor.textAlign")}
+              value={widget.style?.align ?? "auto"}
+              options={[
+                { value: "auto", label: `${t("editor.textAlignAuto")} (${t(`editor.textAlign.${alignFromAnchor(widget.anchor)}`)})` },
+                { value: "left", label: t("editor.textAlign.left") },
+                { value: "center", label: t("editor.textAlign.center") },
+                { value: "right", label: t("editor.textAlign.right") },
+              ]}
+              // "Auto" removes the explicit value so the alignment follows the anchor.
+              onChange={(align) => style({ align: align === "auto" ? undefined : align })}
+            />
+          </Row>
+          <Row label={t("editor.animate")}>
+            <Toggle label={t("editor.animate")} checked={widget.style?.animate !== false} onChange={(animate) => style({ animate })} />
+          </Row>
+          {widget.style?.animate !== false && (
+            // Appears with a short fade instead of pushing the section down in one frame.
+            <div className="transition-opacity duration-150 ease-out starting:opacity-0 motion-reduce:transition-none">
+            <Row label={t("editor.animationMs")}>
+              <NumberInput label={t("editor.animationMs")} value={widget.style?.animationMs ?? 250} min={0} max={5000} step={50} className="w-20" onChange={(animationMs) => style({ animationMs })} />
+            </Row>
+            </div>
+          )}
+        </Section>
+        <Typography style={widget.style} onChange={style} />
+        </>
+      )}
+    </>
+  );
+}
+
+/** Several widgets selected: grouping and the spacing between them. */
+function MultiInspector({ chosen }: { chosen: WidgetInstance[] }) {
+  const t = useT();
+  const doc = useEditor((s) => s.doc);
+  const aspect = useEditor((s) => s.aspect);
+  const { duplicateSelected, removeSelected, groupSelected, ungroupSelected, spaceSelected, distributeSelected, pasteStyle, matchSize } = useEditor.getState();
+  const hasStyle = useEditor((s) => s.styleClipboard !== null);
+  const units = unitsOf(
+    chosen.filter((w) => !w.locked),
+    viewWidthOf(doc, aspect),
+    doc.referenceHeight,
+  );
+  const rects = units.map((u) => u.rect);
+  const grouped = chosen.some((w) => w.group);
+  const oneGroup = new Set(chosen.map((w) => w.group ?? w.id)).size === 1;
+
+  return (
+    <>
+      <header className="flex items-center gap-1 px-3 py-3">
+        <Icon name={oneGroup ? "group" : "layers"} size={18} className="mr-1 text-accent" />
+        <p className="min-w-0 flex-1 text-sm font-medium">{t("editor.multiSelection", { count: chosen.length })}</p>
+        {!oneGroup && <IconButton icon="group" label={t("editor.groupAction")} onClick={groupSelected} />}
+        {grouped && <IconButton icon="ungroup" label={t("editor.ungroupAction")} onClick={ungroupSelected} />}
+        <IconButton icon="check" label={t("editor.pasteStyle")} disabled={!hasStyle} onClick={pasteStyle} />
+        <IconButton icon="copy" label={t("editor.duplicateWidget")} onClick={duplicateSelected} />
+        <IconButton icon="trash" tone="danger" label={t("editor.deleteWidget")} onClick={removeSelected} />
+      </header>
+      {oneGroup && <p className="px-3 pb-3 text-[0.6875rem] leading-snug text-ink-dim">{t("editor.groupHint")}</p>}
+      {units.length >= 2 && (
+        <Section title={t("editor.spacing")}>
+          <Row label={t("editor.gapX")}>
+            <NumberInput label={t("editor.gapX")} prefix="↔" className="w-24" value={Math.round(averageGap(rects, "x"))} onChange={(gap) => spaceSelected("x", gap)} />
+            <IconButton icon="distribute-h" label={t("editor.distributeX")} disabled={units.length < 3} onClick={() => distributeSelected("x")} />
+          </Row>
+          <Row label={t("editor.gapY")}>
+            <NumberInput label={t("editor.gapY")} prefix="↕" className="w-24" value={Math.round(averageGap(rects, "y"))} onChange={(gap) => spaceSelected("y", gap)} />
+            <IconButton icon="distribute-v" label={t("editor.distributeY")} disabled={units.length < 3} onClick={() => distributeSelected("y")} />
+          </Row>
+          <Row label={t("editor.matchSize")}>
+            {(["w", "h", "both"] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => matchSize(d)}
+                className="min-h-8 rounded-md px-2 text-xs text-ink-dim outline-none transition-[background-color,color,scale] duration-150 hover:bg-wash/8 hover:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96]"
+              >
+                {t(`editor.matchSize.${d}`)}
+              </button>
+            ))}
+          </Row>
+          <p className="text-[0.6875rem] leading-snug text-ink-dim">{t("editor.spacingHint")}</p>
+        </Section>
+      )}
+    </>
+  );
+}
+
+/** Right column: properties of the selected widget. */
+export function Inspector() {
+  const t = useT();
+  const widgets = useEditor((s) => s.doc.widgets);
+  const selection = useEditor((s) => s.selection);
+  const chosen = widgets.filter((w) => selection.includes(w.id));
+
+  return (
+    <div className="min-h-0 overflow-y-auto">
+      {chosen.length === 0 ? (
+        <p className="px-4 py-6 text-sm text-ink-dim">{t("editor.noSelection")}</p>
+      ) : chosen.length === 1 ? (
+        <SingleInspector key={chosen[0].id} widget={chosen[0]} />
+      ) : (
+        <MultiInspector chosen={chosen} />
+      )}
+    </div>
+  );
+}

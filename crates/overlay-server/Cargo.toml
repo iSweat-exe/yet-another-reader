@@ -11,9 +11,10 @@ workspace = true
 [dependencies]
 axum = { version = "0.8.9", features = ["ws", "macros"] }
 futures-util = "0.3.34"
-lazer-reader = { path = "../lazer-reader" }
+lazer-reader = { path = "../lazer-reader", default-features = false }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
+sha2 = "0.10.9"
 tokio = { version = "1.54.1", features = ["rt-multi-thread", "net", "sync", "time", "macros"] }
 tower = { version = "0.5.3", features = ["util"] }
 tower-http = { version = "0.7.1", features = ["cors", "fs", "set-header"] }

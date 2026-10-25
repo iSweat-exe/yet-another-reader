@@ -1,14 +1,20 @@
 import type { ComponentType } from "react";
 import type { MessageKey } from "../i18n";
-import type { WidgetOption } from "../lib/types";
-import type { WidgetInstance } from "../overlay/layout";
+import type { WidgetOption } from "../lib/state/types";
+import type { WidgetInstance } from "../overlay/model/layout";
 
 export interface WidgetProps {
   instance: WidgetInstance;
 }
 
 /** An option of a built-in widget: the same fields as a community widget's manifest, with a translated label. */
-export type BuiltinOption = WidgetOption & { labelKey: MessageKey };
+export type BuiltinOption = WidgetOption & {
+  labelKey: MessageKey;
+  /** Choices that depend on the other options (already labelled): replaces `choices` in the editor. */
+  choicesFor?: (values: Record<string, unknown>) => { value: unknown; label: string }[];
+  /** Options to set at the same time as this one changes (e.g. a key that no longer fits the device). */
+  alsoSet?: (value: unknown) => Record<string, unknown>;
+};
 
 export interface WidgetDefinition {
   type: string;

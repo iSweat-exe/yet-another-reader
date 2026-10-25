@@ -15,12 +15,19 @@ use overlay_server::Hub;
 use tauri::{AppHandle, Emitter};
 
 use crate::diag::{Diag, ReaderDiag};
+use crate::platform::{fine_timer, lower_priority};
+use crate::records::Records;
 
 const RETRY_INTERVAL: Duration = Duration::from_secs(2);
 /// A failed snapshot is usually transient (the game's GC moved an object mid-read). Only after
 /// this many failures in a row is the session dropped; reconnecting rescans the game's whole
 /// memory, which is far more disruptive than skipping a few frames.
 const MAX_CONSECUTIVE_FAILURES: u32 = 90;
+/// Outside a play, with nobody subscribed to the state over the API, the game is sampled no faster
+/// than this: menus have nothing that moves faster, and the reader should cost the game nothing there.
+const IDLE_POLL_FLOOR_MS: u64 = 100;
+/// Likewise the keys are sampled no faster than this outside a play (the keyboard widget in a menu).
+const IDLE_INPUT_FLOOR_MS: u64 = 8;
 /// The webview windows do not need a refresh faster than this unless a play is running.
 const IDLE_UI_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -41,6 +48,8 @@ pub struct ReaderContext {
     pub overlay_fps: Arc<AtomicU32>,
     /// Counters and journal shown on the Status page.
     pub diag: Diag,
+    /// Where the personal bests are kept.
+    pub records_dir: std::path::PathBuf,
 }
 
 pub fn spawn(ctx: ReaderContext) -> std::io::Result<()> {
@@ -82,11 +91,45 @@ fn connect(ctx: &ReaderContext) -> Result<LazerSession> {
         ctx,
         ReaderStatus::Connected {
             version: session.version().to_string(),
+            stream: session.version().stream().to_owned(),
             profile: session.profile().source.to_owned(),
             connect_ms: started.elapsed().as_millis() as u64,
+            gc_mode: session.gc_mode(),
         },
     );
     Ok(session)
+}
+
+/// How often the garbage collector's mode is looked at (it changes once per game session at most).
+const GC_INTERVAL: Duration = Duration::from_secs(2);
+
+/// Puts the game's current GC mode in the published status, which carries it since connecting.
+fn refresh_gc_mode(ctx: &ReaderContext, session: &LazerSession) {
+    let ReaderStatus::Connected {
+        version,
+        stream,
+        profile,
+        connect_ms,
+        gc_mode,
+    } = ctx.hub.status()
+    else {
+        return;
+    };
+    let now = session.gc_mode();
+    if now == gc_mode {
+        return;
+    }
+    ctx.diag
+        .info(&ctx.app, "reader", format!("GC latency mode: {now:?}"));
+    let status = ReaderStatus::Connected {
+        version,
+        stream,
+        profile,
+        connect_ms,
+        gc_mode: now,
+    };
+    let _ = ctx.app.emit(EVENT_READER_STATUS, &status);
+    ctx.hub.publish_status(status);
 }
 
 /// Polls until the game goes away or becomes unreadable; returns why.
@@ -99,15 +142,18 @@ fn poll(ctx: &ReaderContext, session: &mut LazerSession, meter: &mut Meter) -> R
     let mut ui = UiEmitter::default();
     let mut failures = 0u32;
     let mut next_snapshot = Instant::now();
-    let mut reading_inputs = false;
-    let mut inputs_failing = false;
+    let mut inputs = InputLoop::default();
+    let mut records = Records::new(ctx.records_dir.clone(), ctx.hub.clone());
+    let mut in_play = false;
+    let mut next_gc = Instant::now() + GC_INTERVAL;
     let result = loop {
         if Instant::now() >= next_snapshot {
             let started = Instant::now();
             let snapshot = session.snapshot();
             meter.snapshot(started.elapsed(), snapshot.is_ok());
             match snapshot {
-                Ok(state) => {
+                Ok(mut state) => {
+                    records.observe(last.as_ref(), &mut state);
                     if failures > 0 {
                         ctx.diag.info(
                             &ctx.app,
@@ -116,6 +162,7 @@ fn poll(ctx: &ReaderContext, session: &mut LazerSession, meter: &mut Meter) -> R
                         );
                     }
                     failures = 0;
+                    in_play = state.gameplay.is_some();
                     if last.as_ref() != Some(&state) {
                         for change in describe_changes(last.as_ref(), &state) {
                             ctx.diag.info(&ctx.app, "game", change);
@@ -141,15 +188,46 @@ fn poll(ctx: &ReaderContext, session: &mut LazerSession, meter: &mut Meter) -> R
                     }
                 }
             }
-            next_snapshot =
-                Instant::now() + Duration::from_millis(ctx.poll_ms.load(Ordering::Relaxed));
+            next_snapshot = Instant::now() + snapshot_interval(ctx, in_play);
         }
 
         ui.flush(&ctx.app, ctx.overlay_fps.load(Ordering::Relaxed));
 
+        if Instant::now() >= next_gc {
+            next_gc = Instant::now() + GC_INTERVAL;
+            refresh_gc_mode(ctx, session);
+        }
+
+        let wanted = inputs.step(ctx, session, meter);
+        meter.tick(ctx, wanted);
+
+        let until_snapshot = next_snapshot.saturating_duration_since(Instant::now());
+        let nap = if wanted {
+            until_snapshot.min(input_interval(ctx, in_play))
+        } else {
+            until_snapshot
+        };
+        thread::sleep(nap);
+    };
+    inputs.stop(ctx);
+    result
+}
+
+/// The fine-grained reading of held keys and mouse buttons, which runs only while something listens to it.
+#[derive(Default)]
+struct InputLoop {
+    reading: bool,
+    /// The last read failed (logged once, not on every tick).
+    failing: bool,
+}
+
+impl InputLoop {
+    /// One tick: reads and publishes the inputs if anyone wants them, and stops reading when nobody does.
+    /// Returns whether they are wanted (the loop then sleeps for less).
+    fn step(&mut self, ctx: &ReaderContext, session: &mut LazerSession, meter: &mut Meter) -> bool {
         let wanted = ctx.hub.inputs_wanted();
         if wanted {
-            if !reading_inputs {
+            if !self.reading {
                 fine_timer(true);
                 ctx.diag.info(
                     &ctx.app,
@@ -161,46 +239,60 @@ fn poll(ctx: &ReaderContext, session: &mut LazerSession, meter: &mut Meter) -> R
             match session.read_inputs() {
                 Ok(inputs) => {
                     meter.input_read(started.elapsed());
-                    if inputs_failing {
+                    if self.failing {
                         ctx.diag.info(&ctx.app, "inputs", "key reads work again");
-                        inputs_failing = false;
+                        self.failing = false;
                     }
-                    publish_inputs(ctx, inputs);
+                    publish_inputs(ctx, &inputs);
                 }
-                Err(e) if !inputs_failing => {
-                    inputs_failing = true;
+                Err(e) if !self.failing => {
+                    self.failing = true;
                     ctx.diag
                         .warn(&ctx.app, "inputs", format!("cannot read the keys: {e}"));
                 }
                 Err(_) => {}
             }
-        } else if reading_inputs {
-            fine_timer(false);
-            publish_inputs(ctx, InputState::default());
+        } else if self.reading {
+            self.stop(ctx);
             ctx.diag.info(
                 &ctx.app,
                 "inputs",
                 "reading keys stopped (nobody looks at them)",
             );
         }
-        reading_inputs = wanted;
-        meter.tick(ctx, wanted);
-
-        let until_snapshot = next_snapshot.saturating_duration_since(Instant::now());
-        let nap = if wanted {
-            until_snapshot.min(Duration::from_millis(
-                ctx.input_ms.load(Ordering::Relaxed).max(1),
-            ))
-        } else {
-            until_snapshot
-        };
-        thread::sleep(nap);
-    };
-    if reading_inputs {
-        fine_timer(false);
+        self.reading = wanted;
+        wanted
     }
-    publish_inputs(ctx, InputState::default());
-    result
+
+    /// Stops reading: the fine timer goes back and the published keys are cleared.
+    fn stop(&mut self, ctx: &ReaderContext) {
+        if self.reading {
+            fine_timer(false);
+        }
+        self.reading = false;
+        publish_inputs(ctx, &InputState::default());
+    }
+}
+
+/// Time between two snapshots: the configured one, stretched in a menu when no API client watches.
+fn snapshot_interval(ctx: &ReaderContext, in_play: bool) -> Duration {
+    let ms = ctx.poll_ms.load(Ordering::Relaxed).max(1);
+    let relaxed = !in_play && ctx.hub.state_clients() == 0;
+    Duration::from_millis(if relaxed {
+        ms.max(IDLE_POLL_FLOOR_MS)
+    } else {
+        ms
+    })
+}
+
+/// Time between two key reads: the configured one, stretched outside a play.
+fn input_interval(ctx: &ReaderContext, in_play: bool) -> Duration {
+    let ms = ctx.input_ms.load(Ordering::Relaxed).max(1);
+    Duration::from_millis(if in_play {
+        ms
+    } else {
+        ms.max(IDLE_INPUT_FLOOR_MS)
+    })
 }
 
 /// Who asked for the keys, as a short phrase (`overlay window, 1 WebSocket`).
@@ -368,31 +460,13 @@ impl Meter {
 }
 
 /// Publishes the held inputs to the API and to the windows that asked for them (on change only).
-fn publish_inputs(ctx: &ReaderContext, inputs: InputState) {
-    if ctx.hub.publish_inputs(inputs.clone()) {
+fn publish_inputs(ctx: &ReaderContext, inputs: &InputState) {
+    if ctx.hub.publish_inputs(inputs) {
         for label in ctx.hub.input_windows() {
-            let _ = ctx.app.emit_to(label.as_str(), EVENT_INPUT_STATE, &inputs);
+            let _ = ctx.app.emit_to(label.as_str(), EVENT_INPUT_STATE, inputs);
         }
     }
 }
-
-/// While the inputs are read every few milliseconds, ask Windows for a 1 ms timer so those naps
-/// are not rounded up to its default ~15 ms tick.
-#[cfg(windows)]
-fn fine_timer(on: bool) {
-    use windows::Win32::Media::{timeBeginPeriod, timeEndPeriod};
-    // SAFETY: plain calls with no pointers; every `timeBeginPeriod` is matched by a `timeEndPeriod`.
-    unsafe {
-        if on {
-            timeBeginPeriod(1);
-        } else {
-            timeEndPeriod(1);
-        }
-    }
-}
-
-#[cfg(not(windows))]
-fn fine_timer(_on: bool) {}
 
 /// A window's `game-state` feed: at most one event per interval, never losing the latest state.
 #[derive(Default)]
@@ -522,16 +596,3 @@ fn publish_game(ctx: &ReaderContext, state: GameState) {
     let _ = ctx.app.emit(EVENT_GAME_STATE, &state);
     ctx.hub.publish_state(state);
 }
-
-/// The reader must never compete with the game for CPU time.
-#[cfg(windows)]
-fn lower_priority() {
-    use windows::Win32::System::Threading::{
-        GetCurrentThread, SetThreadPriority, THREAD_PRIORITY_BELOW_NORMAL,
-    };
-    // SAFETY: operates on the calling thread's own pseudo-handle.
-    let _ = unsafe { SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL) };
-}
-
-#[cfg(not(windows))]
-fn lower_priority() {}

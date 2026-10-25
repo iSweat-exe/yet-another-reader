@@ -41,19 +41,23 @@ In the JavaScript examples on this page, `API` is `"http://127.0.0.1:24051/api/v
 | [`GET /screen`](#get-screen) | object | Current screen and play state |
 | [`GET /beatmap`](#get-beatmap) | object or `null` | The selected beatmap |
 | [`GET /difficulty`](#get-difficulty) | object or `null` | Stars and PP with the active mods |
+| [`GET /difficulty-graph`](#get-difficulty-graph) | object or `null` | Difficulty along the song (graph) |
 | [`GET /mods`](#get-mods) | object | Selected mods and mode |
 | [`GET /time`](#get-time) | object or `null` | Position in the song |
 | [`GET /user`](#get-user) | object or `null` | Logged-in user and their statistics |
 | [`GET /gameplay`](#get-gameplay) | object or `null` | The play in progress |
 | [`GET /pp`](#get-pp) | object or `null` | Live / FC / SS PP |
 | [`GET /hit-errors`](#get-hit-errors) | object | UR and latest timing errors |
+| [`GET /personal-best`](#get-personal-best) | object or `null` | The best score on the beatmap seen by the application, with how it unfolded |
 | [`GET /inputs`](#get-inputs) | object | Keys and mouse buttons held, **real time** |
 | [`GET /assets/background`](#get-assetsbackground) | image | Background picture of the beatmap |
 | [`GET /assets/audio`](#get-assetsaudio) | audio | Audio file of the beatmap (`Range` supported) |
+| [`GET /images/{id}`](#get-imagesid) | image | A picture imported for the Image widget |
 | [`GET /widgets`](#get-widgets) | array | Manifests of the community widgets |
 | [`GET /docs`](#get-docs) | Markdown | The API documentation |
 | `GET /ws` | WebSocket | State stream: see [WebSocket](WEBSOCKET.md#state-stream) |
 | `GET /inputs/ws` | WebSocket | Keys stream: see [WebSocket](WEBSOCKET.md#input-stream) |
+| `GET /events/ws` | WebSocket | Events-only stream: see [WebSocket](WEBSOCKET.md#event-stream) |
 
 Outside `/api/v1`, [`GET /widgets/<folder>/<file>`](#get-widgetsfolderfile) serves the files of the
 [community widgets](WIDGETS.md).
@@ -86,6 +90,7 @@ console.log(index.apiVersion, index.endpoints.length);
   "appVersion": "0.1.0",
   "websocket": "/api/v1/ws",
   "inputsWebsocket": "/api/v1/inputs/ws",
+  "eventsWebsocket": "/api/v1/events/ws",
   "documentation": "/api/v1/docs",
   "endpoints": [
     {
@@ -104,7 +109,7 @@ console.log(index.apiVersion, index.endpoints.length);
 }
 ```
 
-The fields: `name`, `apiVersion` (the contract number, `1`), `appVersion` (the version of the application), `websocket` and `inputsWebsocket` (the paths of the two WebSockets), `documentation` and `endpoints` (each route with its `description`, in English).
+The fields: `name`, `apiVersion` (the contract number, `1`), `appVersion` (the version of the application), `websocket`, `inputsWebsocket` and `eventsWebsocket` (the paths of the three WebSockets), `documentation` and `endpoints` (each route with its `description`, in English).
 
 ### `GET /health`
 
@@ -152,8 +157,10 @@ if (status.phase !== "connected") console.log("osu!lazer not ready:", status.pha
 {
   "phase": "connected",
   "version": "2026.1005.0-lazer+9a10d935",
+  "stream": "lazer",
   "profile": "embedded default",
-  "connectMs": 5200
+  "connectMs": 5200,
+  "gcMode": "interactive"
 }
 ```
 
@@ -161,8 +168,10 @@ if (status.phase !== "connected") console.log("osu!lazer not ready:", status.pha
 | --- | --- | --- |
 | `waiting` | osu!lazer is not running | none |
 | `connecting` | Game detected, finding the game's objects (a few seconds) | none |
-| `connected` | Reading in progress | `version`, `profile`, `connectMs` (connection time) |
+| `connected` | Reading in progress | `version`, `stream` (`lazer`, `tachyon`...), `profile`, `connectMs` (connection time), `gcMode` |
 | `error` | Game running but unreadable | `message` |
+
+`gcMode` is the latency mode of the game's .NET garbage collector outside a play: `interactive` (normal), `lowLatency`, `sustainedLowLatency` or `noGcRegion`. It is `null` until the game has shown it: osu!lazer only records it when the first play begins.
 
 When the game is not running:
 
@@ -234,8 +243,10 @@ const { seq, status, state } = await (await fetch(`${API}/snapshot`)).json();
   "status": {
     "phase": "connected",
     "version": "2026.1005.0-lazer+9a10d935",
+    "stream": "lazer",
     "profile": "embedded default",
-    "connectMs": 5200
+    "connectMs": 5200,
+    "gcMode": "interactive"
   },
   "state": {
     "connected": true,
@@ -268,6 +279,7 @@ if (state.gameplay) console.log(state.gameplay.score, state.gameplay.combo);
 {
   "connected": true,
   "version": "2026.1005.0-lazer+9a10d935",
+  "stream": "lazer",
   "screen": "playing",
   "screenType": "osu.Game.Screens.Play.SoloPlayer",
   "playing": "playing",
@@ -320,7 +332,15 @@ if (state.gameplay) console.log(state.gameplay.score, state.gameplay.combo);
     "pp95": 250.0,
     "pp98": 290.0,
     "pp99": 310.0,
-    "pp100": 340.0
+    "pp100": 340.0,
+    "firstObjectMs": 3200.0,
+    "lastObjectMs": 176400.0
+  },
+  "difficultyGraph": {
+    "durationMs": 180000.0,
+    "overall": 7.4,
+    "peakMs": 174750.0,
+    "buckets": [0.15, 0.158, 0.167, 0.175, 0.183, 0.192, 0.2, 0.208, 0.217, 0.225, 0.233, 0.242, 0.25, 0.258, 0.267, 0.275, 0.283, 0.292, 0.62, 0.563, 0.644, 0.714, 0.767, 0.796, 0.797, 0.772, 0.722, 0.653, 0.573, 0.61, 0.686, 0.747, 0.787, 0.8, 0.786, 0.746, 0.684, 0.608, 0.575, 0.655, 0.723, 0.773, 0.798, 0.795, 0.766, 0.713, 0.641, 0.56, 0.622, 0.696, 0.755, 0.79, 0.8, 0.781, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.6, 0.607, 0.613, 0.616, 0.625, 0.635, 0.644, 0.651, 0.653, 0.651, 0.658, 0.675, 0.688, 0.696, 0.696, 0.689, 0.689, 0.711, 0.73, 0.741, 0.741, 0.731, 0.715, 0.745, 0.77, 0.785, 0.787, 0.775, 0.753, 0.774, 0.807, 0.828, 0.834, 0.822, 0.796, 0.8, 0.84, 0.869, 0.88, 0.87, 0.843, 0.821, 0.87, 0.908, 0.926, 0.92, 0.892, 0.849, 0.895, 0.943, 0.97, 0.97, 0.943, 0.897]
   },
   "time": {
     "currentMs": 8000.0,
@@ -345,6 +365,12 @@ if (state.gameplay) console.log(state.gameplay.score, state.gameplay.combo);
       "totalScore": 21000000000
     }
   },
+  "spectators": [
+    { "id": 2, "username": "peppy", "avatarUrl": "https://a.ppy.sh/2" },
+    { "id": 124493, "username": "Cookiezi", "avatarUrl": "https://a.ppy.sh/124493" },
+    { "id": 4787150, "username": "mrekk", "avatarUrl": "https://a.ppy.sh/4787150" }
+  ],
+  "spectatorCount": 3,
   "gameplay": {
     "score": 15400,
     "scoreWithoutMods": 11200,
@@ -382,11 +408,22 @@ if (state.gameplay) console.log(state.gameplay.score, state.gameplay.combo);
       4.5,
       8.1
     ]
+  },
+  "personalBest": {
+    "score": 66000,
+    "pp": 148.2,
+    "accuracy": 0.9812,
+    "maxCombo": 301,
+    "mods": [
+      "HD",
+      "DT"
+    ],
+    "playedAt": 1760000000000
   }
 }
 ```
 
-The fields are described in the [data model](DATA_MODEL.md#gamestate-state). Response when osu!lazer is not running (`connected` is `false`, everything else is empty):
+The fields are described in the [data model](DATA_MODEL.md#gamestate-state). `personalBest` is the [best score](#get-personal-best) on the beatmap, **without** its `samples` and `maxPp` (or `null` before the first one). Response when osu!lazer is not running (`connected` is `false`, everything else is empty):
 
 ```json
 {
@@ -399,9 +436,13 @@ The fields are described in the [data model](DATA_MODEL.md#gamestate-state). Res
   "mods": [],
   "beatmap": null,
   "difficulty": null,
+  "difficultyGraph": null,
   "time": null,
   "user": null,
-  "gameplay": null
+  "spectators": [],
+  "spectatorCount": 0,
+  "gameplay": null,
+  "personalBest": null
 }
 ```
 
@@ -518,11 +559,52 @@ if (d) console.log(`${d.stars.toFixed(2)}★, ${Math.round(d.pp98)}pp at 98 %`);
   "pp95": 250.0,
   "pp98": 290.0,
   "pp99": 310.0,
-  "pp100": 340.0
+  "pp100": 340.0,
+  "firstObjectMs": 3200.0,
+  "lastObjectMs": 176400.0
 }
 ```
 
 `null` if no beatmap is selected, or if its `.osu` file cannot be found. See [`Difficulty`](DATA_MODEL.md#difficulty).
+
+### `GET /difficulty-graph`
+
+The difficulty of the beatmap **along the whole song**, with the active mods: 120 bars normalised to the map itself
+(`0` = calm section, `1` = the hardest of this map), to draw a graph. It is computed once per map, mods and speed, off the
+reading thread: the response is `null` for that fraction of a second.
+
+**Usage example**
+
+```bash
+curl http://127.0.0.1:24051/api/v1/difficulty-graph
+```
+
+```js
+const g = await (await fetch(`${API}/difficulty-graph`)).json();
+if (g) console.log(`${g.overall.toFixed(2)}★, hardest section at ${Math.round(g.peakMs / 1000)} s`);
+```
+
+**Response example**: `200`
+
+```json
+{
+  "durationMs": 180000.0,
+  "overall": 7.4,
+  "peakMs": 174750.0,
+  "buckets": [
+    0.15, 0.158, 0.167, 0.175, 0.183, 0.192, 0.2, 0.208, 0.217, 0.225, 0.233, 0.242, 0.25, 0.258, 0.267,
+    0.275, 0.283, 0.292, 0.62, 0.563, 0.644, 0.714, 0.767, 0.796, 0.797, 0.772, 0.722, 0.653, 0.573, 0.61,
+    0.686, 0.747, 0.787, 0.8, 0.786, 0.746, 0.684, 0.608, 0.575, 0.655, 0.723, 0.773, 0.798, 0.795, 0.766,
+    0.713, 0.641, 0.56, 0.622, 0.696, 0.755, 0.79, 0.8, 0.781, 0.12, 0.12, 0.12, 0.12, 0.12, 0.12,
+    0.12, 0.12, 0.12, 0.12, 0.12, 0.12, 0.6, 0.607, 0.613, 0.616, 0.625, 0.635, 0.644, 0.651, 0.653,
+    0.651, 0.658, 0.675, 0.688, 0.696, 0.696, 0.689, 0.689, 0.711, 0.73, 0.741, 0.741, 0.731, 0.715, 0.745,
+    0.77, 0.785, 0.787, 0.775, 0.753, 0.774, 0.807, 0.828, 0.834, 0.822, 0.796, 0.8, 0.84, 0.869, 0.88,
+    0.87, 0.843, 0.821, 0.87, 0.908, 0.926, 0.92, 0.892, 0.849, 0.895, 0.943, 0.97, 0.97, 0.943, 0.897
+  ]
+}
+```
+
+`null` if no beatmap is selected, if its `.osu` file cannot be found or until the computation is done. See [`DifficultyGraph`](DATA_MODEL.md#difficultygraph).
 
 ### `GET /mods`
 
@@ -747,6 +829,98 @@ Outside a play, the route always answers `200`:
 
 `unstableRate` is also `null` before the second hit. The list keeps at most the last 128 errors.
 
+### `GET /personal-best`
+
+The **best score** on the selected beatmap, as the application has **seen** it, with how it unfolded second by second: what you need to compare a live play with your record, at the same point of the song.
+
+- Only **completed solo plays** count (up to the results screen). A replay, spectating, a failed or a quit play never becomes a record.
+- A play replaces the record only if its score is **strictly higher**.
+- `maxPp` keeps the **highest PP** of every completed solo play of the beatmap, even when its score is lower than the record's.
+- Plays made **before** the application ran are **unknown**: it does not read osu!lazer's score database.
+- The record is kept in `records/<beatmap sha256>.json`, in the [config folder](SETTINGS.md#where-are-my-files): it survives restarts.
+- `null` until a record exists for the beatmap.
+
+**Usage example**
+
+```bash
+curl http://127.0.0.1:24051/api/v1/personal-best
+```
+
+```js
+const record = await (await fetch(`${API}/personal-best`)).json();
+if (record) console.log(`record: ${record.score} points, ${(record.accuracy * 100).toFixed(2)}%`);
+```
+
+**Response example**: `200`
+
+```json
+{
+  "score": 66000,
+  "pp": 148.2,
+  "accuracy": 0.9812,
+  "maxCombo": 301,
+  "mods": [
+    "HD",
+    "DT"
+  ],
+  "playedAt": 1760000000000,
+  "samples": [
+    [0.0, 0.0, 100.0, 0.985],
+    [4000.0, 7333.333333333333, 105.35555555555555, 0.9845555555555555],
+    [8000.0, 14666.666666666666, 110.71111111111111, 0.984111111111111]
+  ],
+  "maxPp": 152.7
+}
+```
+
+The response is shortened to three samples: the sample server gives ten, one every 4 seconds, whereas a real play records **one per second** of song.
+
+| Field | Description |
+| --- | --- |
+| `score` | Final score (with the mod multiplier). |
+| `pp` | PP at the end of the play (`0` if they could not be calculated). |
+| `accuracy` | Accuracy, `0.0`–`1.0`. |
+| `maxCombo` | Best combo of the play. |
+| `mods` | Mods of the play. |
+| `playedAt` | End of the play, in milliseconds since the Unix epoch. |
+| `samples` | How it unfolded: `[songTimeMs, score, pp, accuracy]`, in time order. The last sample is the end of the play. |
+| `maxPp` | The highest PP of a completed solo play of the beatmap seen by the application (at least `pp`). |
+
+The same object, **without** `samples` and `maxPp`, is in `personalBest` of [`GET /state`](#get-state) and of the `state` messages of the [WebSocket](WEBSOCKET.md#state-stream): that is enough to display the record, the route is there to **compare** with it.
+
+**Comparing a live play with the record**: read the route once (when the beatmap changes), then, on every `state`, look up the record's value **at the same song time** as the play. The time of the play is `time.currentMs` when `time.source` is `gameplay`; between two samples, interpolate.
+
+```js
+const API = "http://127.0.0.1:24051/api/v1";
+const record = await (await fetch(`${API}/personal-best`)).json();
+
+// Value of the record at a given song time (linear interpolation between two samples).
+// column: 1 = score, 2 = pp, 3 = accuracy.
+function recordAt(t, column = 1) {
+  const s = record.samples;
+  if (t <= s[0][0]) return s[0][column];
+  for (let i = 1; i < s.length; i++) {
+    if (t <= s[i][0]) {
+      const k = (t - s[i - 1][0]) / (s[i][0] - s[i - 1][0]);
+      return s[i - 1][column] + k * (s[i][column] - s[i - 1][column]);
+    }
+  }
+  return s[s.length - 1][column];
+}
+
+const ws = new WebSocket(API.replace("http", "ws") + "/ws?topics=gameplay,time&events=false");
+ws.onmessage = (e) => {
+  const msg = JSON.parse(e.data);
+  if (msg.type !== "hello" && msg.type !== "state") return;
+  const { gameplay, time } = msg.data;
+  if (!record || !gameplay || time?.source !== "gameplay") return;
+  const gap = gameplay.score - recordAt(time.currentMs);
+  console.log(`${gap >= 0 ? "+" : ""}${Math.round(gap)} points compared to the record`);
+};
+```
+
+> [!NOTE] `personalBest` is **not** a topic of the [state WebSocket](WEBSOCKET.md#connection): with `?topics=` it is not sent. The `samples` are only on this route anyway.
+
 ## Inputs
 
 ### `GET /inputs`
@@ -868,6 +1042,50 @@ accept-ranges: bytes
 
 The errors are those of [`/assets/background`](#get-assetsbackground).
 
+## Imported images
+
+### `GET /images/{id}`
+
+A picture the user imported for the [Image](BUILTIN_WIDGETS.md#miscellaneous) widget (the **Import an image…** button of
+the editor), or a **font** imported for a widget's text (`style.font`, see [Layout](LAYOUT.md)), served with the right
+`Content-Type` (`font/woff2`…). The file is copied into the app's data under a name that is a **hash of
+its content**: the `id` (`<32 hexadecimal digits>.<png|jpg|gif|webp|svg|ttf|otf|woff|woff2>`) is the only thing a layout keeps, and the same
+picture imported twice has the same `id`. Only **PNG, JPEG, GIF, WebP, SVG** (pictures) or **TTF, OTF, WOFF, WOFF2** (fonts) files of 15 MB at most are accepted (the
+type is checked on the content, not on the extension; an SVG with a script is refused). An `id` that does not have exactly
+this shape answers `404`: no other file can be reached.
+
+**Usage example**
+
+```bash
+curl http://127.0.0.1:24051/api/v1/images/cb27a70bc0fd6a4607c0b158be921383.png -o image.png
+```
+
+```html
+<img src="http://127.0.0.1:24051/api/v1/images/cb27a70bc0fd6a4607c0b158be921383.png" />
+```
+
+```js
+const layoutOptions = { image: "cb27a70bc0fd6a4607c0b158be921383.png" }; // what an Image widget keeps
+const src = `${API}/images/${layoutOptions.image}`;
+```
+
+**Response example**: `200`, `Content-Type: image/png`, `Cache-Control: public, max-age=31536000, immutable` (the `id` never
+changes content), `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox; default-src 'none'; style-src 'unsafe-inline'`
+(an SVG opened on its own runs nothing), then the bytes of the picture.
+
+**Errors**
+
+| Code | `error.code` | `error.message` |
+| --- | --- | --- |
+| `404` | `notFound` | `no such picture`: the `id` is invalid, the picture was deleted, or the app has no images folder |
+| `500` | `io` | File read error |
+
+Example:
+
+```json
+{"error": {"code": "notFound", "message": "no such picture"}}
+```
+
 ## Widgets and documentation
 
 ### `GET /widgets`
@@ -968,6 +1186,7 @@ An API error returns an HTTP code and a JSON body always of the same shape:
 | `404` | `notFound` | Unknown route (`/api/v1/nope`, `/api/v1/state/`, `/`…) | `{"error":{"code":"notFound","message":"no such endpoint; see /api/v1"}}` |
 | `404` | `notFound` | Beatmap file unavailable | see [Beatmap files](#beatmap-files) |
 | `400` | `invalidTopic` | An invalid `topics` when opening the [state WebSocket](WEBSOCKET.md#connection) | `unknown topic "nope"; valid topics: …` |
+| `400` | `invalidEvent` | An invalid `names` when opening the [events WebSocket](WEBSOCKET.md#filtering-the-events) | `unknown event "nope"; valid events: …` |
 | `500` | `io` | Error reading a file | |
 
 Other responses are **not** JSON:
@@ -985,6 +1204,7 @@ application is not running.
 - **A one-off script**: `GET /state`, or `GET /snapshot` to get a consistent status and state.
 - **Polling anyway**: there is no point calling more often than `pollIntervalMs` (33 ms by default), the state does not change faster.
   Use `seq` to detect a change.
+- **React to a note, a miss, a broken combo**: the [events WebSocket](WEBSOCKET.md#event-stream), rather than comparing two states.
 - **The keys**: `GET /inputs` works in a loop (5 seconds of reading per call), but the keys WebSocket is more responsive.
 - **Reconnection**: the API restarts when you change the port or turn it off; retry with an increasing delay.
 

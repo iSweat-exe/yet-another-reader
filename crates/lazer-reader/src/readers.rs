@@ -2,7 +2,8 @@
 
 use crate::clr::Clr;
 use crate::model::{
-    Assets, Beatmap, DifficultyAdjust, ModSettings, Paths, Time, TimeSource, User, UserStatistics,
+    Assets, Beatmap, DifficultyAdjust, ModSettings, Paths, Spectator, Time, TimeSource, User,
+    UserStatistics,
 };
 use crate::profile::Profile;
 
@@ -202,6 +203,38 @@ pub fn read_user(clr: &Clr, root: u64, profile: &Profile) -> Option<User> {
     })
 }
 
+/// Most spectators kept in the list; the count itself is not capped.
+pub const MAX_SPECTATORS: usize = 100;
+
+/// Avatar of an osu! account (`None` for the guest / unknown id).
+#[must_use]
+pub fn avatar_url(id: i32) -> Option<String> {
+    (id > 0).then(|| format!("https://a.ppy.sh/{id}"))
+}
+
+/// The users watching the signed-in user: `(list capped at MAX_SPECTATORS, total count)`.
+/// Empty when offline or when nobody is watching.
+pub fn read_spectators(clr: &Clr, root: u64, profile: &Profile) -> (Vec<Spectator>, u32) {
+    let Some(list) = follow(clr, root, profile.spectators) else {
+        return (Vec::new(), 0);
+    };
+    let items = clr.collection_refs(list, "_items").unwrap_or_default();
+    let total = u32::try_from(items.len()).unwrap_or(u32::MAX);
+    let spectators = items
+        .into_iter()
+        .take(MAX_SPECTATORS)
+        .filter_map(|u| {
+            let id = clr.i32_field(u, &backing("OnlineID")).ok()?;
+            Some(Spectator {
+                id,
+                username: text(clr, u, &backing("Username")),
+                avatar_url: avatar_url(id),
+            })
+        })
+        .collect();
+    (spectators, total)
+}
+
 /// Song position from a `FramedBeatmapClock`.
 pub fn read_time(clr: &Clr, clock: u64, source: TimeSource) -> Option<Time> {
     let current = follow(clr, clock, &["finalClockSource"])?;
@@ -320,6 +353,53 @@ pub fn mod_acronym(type_name: &str) -> String {
         "DifficultyAdjust" => "DA",
         "Autoplay" => "AT",
         "Cinema" => "CN",
+        "AccuracyChallenge" => "AC",
+        "AdaptiveSpeed" => "AS",
+        "Alternate" => "AL",
+        "ApproachDifferent" => "AD",
+        "BarrelRoll" => "BR",
+        "Blinds" => "BL",
+        "Bloom" => "BM",
+        "Bubbles" => "BU",
+        "ConstantSpeed" => "CS",
+        "Cover" => "CO",
+        "Deflate" => "DF",
+        "Depth" => "DP",
+        "DualStages" => "DS",
+        "FadeIn" => "FI",
+        "FloatingFruits" => "FF",
+        "FreezeFrame" => "FR",
+        "Grow" => "GR",
+        "HoldOff" => "HO",
+        "Invert" => "IN",
+        "Magnetised" => "MG",
+        "Mirror" => "MR",
+        "MovingFast" => "MF",
+        "Muted" => "MU",
+        "NoRelease" => "NR",
+        "NoScope" => "NS",
+        "Random" => "RD",
+        "Repel" => "RP",
+        "ScoreV2" => "SV2",
+        "SimplifiedRhythm" => "SR",
+        "SingleTap" => "SG",
+        "SpinIn" => "SI",
+        "StrictTracking" => "ST",
+        "Swap" => "SW",
+        "Synesthesia" => "SY",
+        "TargetPractice" => "TP",
+        "Traceable" => "TC",
+        "Transform" => "TR",
+        "WindDown" => "WD",
+        "WindUp" => "WU",
+        "Wiggle" => "WG",
+        // The mania key counts: `ManiaModKey4` is `4K`.
+        key if key
+            .strip_prefix("Key")
+            .is_some_and(|n| n.parse::<u8>().is_ok_and(|n| (1..=10).contains(&n))) =>
+        {
+            return format!("{}K", &key[3..]);
+        }
         other => other,
     }
     .to_owned()
@@ -328,6 +408,27 @@ pub fn mod_acronym(type_name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mod_acronym_should_name_every_mod_not_only_the_common_ones() {
+        assert_eq!(
+            mod_acronym("osu.Game.Rulesets.Osu.Mods.OsuModBarrelRoll"),
+            "BR"
+        );
+        assert_eq!(
+            mod_acronym("osu.Game.Rulesets.Mania.Mods.ManiaModKey4"),
+            "4K"
+        );
+        assert_eq!(
+            mod_acronym("osu.Game.Rulesets.Mania.Mods.ManiaModKey10"),
+            "10K"
+        );
+        assert_eq!(mod_acronym("osu.Game.Rulesets.Mods.ModWindUp"), "WU");
+        assert_eq!(
+            mod_acronym("osu.Game.Rulesets.Mods.ModBrandNew"),
+            "BrandNew"
+        );
+    }
 
     #[test]
     fn mod_acronym_should_strip_ruleset_prefix() {
@@ -341,6 +442,13 @@ mod tests {
             mod_acronym("osu.Game.Rulesets.Osu.Mods.OsuModSomethingNew"),
             "SomethingNew"
         );
+    }
+
+    #[test]
+    fn avatar_url_should_be_absent_for_the_guest() {
+        assert_eq!(avatar_url(42).as_deref(), Some("https://a.ppy.sh/42"));
+        assert_eq!(avatar_url(0), None);
+        assert_eq!(avatar_url(-1), None);
     }
 
     #[test]

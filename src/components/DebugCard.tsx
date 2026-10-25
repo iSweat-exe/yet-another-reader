@@ -1,9 +1,11 @@
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useT } from "../i18n";
-import { clearLog, useReaderStore } from "../lib/store";
-import type { InputConsumers, LogLevel, LogLine } from "../lib/types";
+import { rulesetIconUrl } from "../lib/media/assets";
+import { clearLog, useReaderStore } from "../lib/state/store";
+import type { InputConsumers, LogLevel, LogLine } from "../lib/state/types";
 import { CopyButton, Group } from "./controls";
-import { Icon } from "./Icon";
+import { Icon } from "./icons/Icon";
+import { ModIcon } from "./icons/ModIcon";
 
 /** A label and its value on one line; `hint` goes under the value in the dim colour. */
 function Fact({ label, value, hint, tone }: { label: string; value: ReactNode; hint?: ReactNode; tone?: string }) {
@@ -86,8 +88,16 @@ function Seen() {
   return (
     <Group title={t("debug.seen")}>
       <Fact label={t("debug.screen")} value={game.screenType ? game.screenType.split(".").pop() : none} hint={game.screen} />
-      <Fact label={t("debug.ruleset")} value={game.ruleset ?? none} />
-      <Fact label={t("debug.mods")} value={game.mods.length ? game.mods.join(" ") : none} hint={`${t("debug.speed", { n: game.clockRate })}${adjustText ? ` · ${adjustText}` : ""}`} />
+      <Fact
+        label={t("debug.ruleset")}
+        value={
+          <span className="inline-flex items-center gap-2">
+            {rulesetIconUrl(game.ruleset) && <img src={rulesetIconUrl(game.ruleset)} alt="" width={20} height={20} decoding="async" draggable={false} className="size-5 opacity-90" />}
+            {game.ruleset ?? none}
+          </span>
+        }
+      />
+      <Fact label={t("debug.mods")} value={game.mods.length ? <span className="inline-flex flex-wrap items-center justify-end gap-1">{game.mods.map((mod) => <ModIcon key={mod} mod={mod} height={22} />)}</span> : none} hint={`${t("debug.speed", { n: game.clockRate })}${adjustText ? ` · ${adjustText}` : ""}`} />
       <Fact label={t("debug.beatmap")} value={game.beatmap ? `${game.beatmap.artist} - ${game.beatmap.title}` : none} hint={game.beatmap ? `[${game.beatmap.version}]${game.difficulty ? ` · ${game.difficulty.stars.toFixed(2)}★ · ${game.difficulty.pp100.toFixed(0)} pp` : ""}` : undefined} />
       <Fact label={t("debug.clock")} value={game.time ? `${(game.time.currentMs / 1000).toFixed(1)} s` : none} hint={game.time ? `${game.time.source}${game.time.running ? "" : " · paused"}` : undefined} />
       <Fact
@@ -145,10 +155,10 @@ function Journal() {
       title={t("debug.log")}
       aside={
         <div className="-my-2 flex items-center gap-1">
-          <button type="button" aria-pressed={follow} onClick={() => setFollow(!follow)} className={`min-h-10 rounded-lg px-2.5 text-xs outline-none transition-[color,background-color,scale] duration-150 ease-out hover:bg-white/6 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] ${follow ? "text-accent" : "text-ink-dim"}`}>
+          <button type="button" aria-pressed={follow} onClick={() => setFollow(!follow)} className={`min-h-10 rounded-lg px-2.5 text-xs outline-none transition-[color,background-color,scale] duration-150 ease-out hover:bg-wash/6 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] ${follow ? "text-accent" : "text-ink-dim"}`}>
             {t("debug.follow")}
           </button>
-          <button type="button" onClick={clearLog} disabled={log.length === 0} className="min-h-10 rounded-lg px-2.5 text-xs text-ink-dim outline-none transition-[color,background-color,scale] duration-150 ease-out hover:bg-white/6 hover:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100">
+          <button type="button" onClick={clearLog} disabled={log.length === 0} className="min-h-10 rounded-lg px-2.5 text-xs text-ink-dim outline-none transition-[color,background-color,scale] duration-150 ease-out hover:bg-wash/6 hover:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100">
             {t("debug.clear")}
           </button>
           <CopyButton text={log.map(lineText).join("\n")} />
@@ -164,7 +174,7 @@ function Journal() {
           const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
           if (atEnd !== follow) setFollow(atEnd);
         }}
-        className="my-3 max-h-72 overflow-y-auto rounded-lg bg-canvas px-3 py-2 font-mono text-xs leading-5 shadow-[0_0_0_1px_oklch(1_0_0/0.06)]"
+        className="my-3 max-h-72 overflow-y-auto rounded-lg bg-canvas px-3 py-2 font-mono text-xs leading-5 shadow-[0_0_0_1px_oklch(from_var(--wash)_l_c_h/0.06)]"
       >
         {log.length === 0 ? (
           <p className="py-1 font-sans text-sm text-ink-dim">{t("debug.logEmpty")}</p>
@@ -188,7 +198,7 @@ export function DebugCard() {
   return (
     <section aria-labelledby="debug-heading" className="space-y-6">
       <div className="flex items-center gap-2">
-        <Icon name="ur" className="text-ink-dim" />
+        <Icon name="debug" className="text-ink-dim" />
         <h2 id="debug-heading" className="text-base font-semibold">
           {t("debug.title")}
         </h2>

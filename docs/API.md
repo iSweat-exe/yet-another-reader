@@ -64,6 +64,9 @@ const ws = new WebSocket("ws://127.0.0.1:24051/api/v1/ws");
 ws.onmessage = (e) => console.log(JSON.parse(e.data));
 ```
 
+Il y a **trois WebSockets** : `/api/v1/ws` (l'état, le statut et les événements), `/api/v1/inputs/ws` (les touches) et
+`/api/v1/events/ws` (les événements seuls, sans état : une note touchée, un miss, un combo cassé). Voir [WebSocket](WEBSOCKET.md).
+
 > Le port par défaut est **24051**. Il se change dans l'application (carte « Réglages »).
 
 ---
@@ -100,7 +103,7 @@ Les valeurs en vigueur sont lisibles via `GET /api/v1/settings` (lecture seule).
 | Erreurs | Code HTTP + corps `{"error": {"code": "...", "message": "..."}}`. |
 | Version | `GET /api/v1` renvoie `apiVersion` (pas de `/` final : `/api/v1/` répond `404`). |
 
-Codes d'erreur : `notFound` (404) · `invalidTopic` (400) · `io` (500). Le détail est dans les [routes REST](REST_API.md#erreurs).
+Codes d'erreur : `notFound` (404) · `invalidTopic` (400) · `invalidEvent` (400) · `io` (500). Le détail est dans les [routes REST](REST_API.md#erreurs).
 
 ```json
 { "error": { "code": "notFound", "message": "no such endpoint; see /api/v1" } }
@@ -123,7 +126,7 @@ publiées **à chaque changement**.
 > récente sur `/inputs` (pendant 5 secondes), ou un widget de touches affiché dans l'overlay. Sinon, aucune lecture
 > supplémentaire n'est faite dans le jeu.
 
-C'est l'état d'entrée **du jeu lui-même** : une touche pressée alors qu'une autre fenêtre a le focus n'est pas vue. Pendant un **replay**, les touches rejouées (celles que le jeu affiche) apparaissent aussi : elles sont déduites des actions du ruleset et de tes raccourcis (Z/X par défaut). Tes propres touches sont alors **ignorées** (le jeu les ignore aussi), pour ne pas mélanger les deux. Les noms
+C'est l'état d'entrée **du jeu lui-même** : une touche pressée alors qu'une autre fenêtre a le focus n'est pas vue. Pendant un **replay** ou avec un mod qui joue à ta place (**AT**, **CN**, **RX**), les touches rejouées (celles que le jeu affiche) apparaissent aussi : elles sont déduites des actions du ruleset et de tes raccourcis (Z/X par défaut). Tes propres touches sont alors **ignorées** (le jeu les ignore aussi), pour ne pas mélanger les deux. Seul ce que le jeu presse lui-même est lu (le dernier état de replay de son gestionnaire d'entrées), jamais tes touches physiques, y compris avec **RX**. Avec RX, AT et Cinéma, le jeu retire de son conteneur les raccourcis des boutons : les touches affichées sont alors celles de ta dernière partie normale du même ruleset, sinon `Z` et `X` pour osu!. Les noms
 sont ceux d'osu!framework (`osuTK.Input.Key` et `MouseButton`) : lettres (`Z`), chiffres (`Number1`), `Space`, `ShiftLeft`,
 `ControlLeft`, `Escape`, `Tilde`, `Up`, `F1`, `Keypad0`…, et pour la souris `Left`, `Right`, `Middle`, `Button1`, `Button2`.
 
@@ -136,6 +139,8 @@ sont ceux d'osu!framework (`osuTK.Input.Key` et `MouseButton`) : lettres (`Z`), 
 | Afficher en direct (overlay, widget, source OBS) | [WebSocket](WEBSOCKET.md#flux-de-létat) |
 | Suivre les touches avec la latence la plus faible | [WebSocket des touches](WEBSOCKET.md#flux-des-touches) |
 | Réagir à un début ou une fin de partie | [Événements](WEBSOCKET.md#événements) |
+| Réagir à chaque note, à un miss ou à un combo cassé | [WebSocket des événements](WEBSOCKET.md#flux-des-événements) |
+| Comparer la partie en cours avec ton meilleur score sur la map | [`GET /personal-best`](REST_API.md#get-personal-best) |
 | Lire une valeur une fois (script, `curl`) | [`GET /state`](REST_API.md#get-state) |
 | Télécharger le fond ou la musique | [`/assets/*`](REST_API.md#fichiers-de-la-beatmap) |
 | Savoir si quelque chose a changé depuis ton dernier appel | `seq` de [`GET /snapshot`](REST_API.md#get-snapshot) |
@@ -232,6 +237,16 @@ if (map?.assets.background) {
     `url(http://127.0.0.1:24051/api/v1/assets/background?v=${map.sha256})`;
 }
 const progress = Math.min(1, Math.max(0, state.time.currentMs / map.lengthMs));
+```
+
+### Exemple : réagir à un combo cassé (événements)
+
+```js
+const ws = new WebSocket("ws://127.0.0.1:24051/api/v1/events/ws?names=miss,comboBreak");
+ws.onmessage = (e) => {
+  const msg = JSON.parse(e.data);
+  if (msg.type === "event" && msg.event.name === "comboBreak") console.log(`combo perdu : ${msg.event.lost}`);
+};
 ```
 
 ### Exemple : Python

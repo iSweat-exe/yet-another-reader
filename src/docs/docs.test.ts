@@ -5,6 +5,9 @@ import serverRoutes from "../../crates/overlay-server/src/routes.rs?raw";
 import { highlight } from "./highlight";
 import { plainText, renderMarkdown, slugify } from "./markdown";
 import { DOC_PAGES, DOC_SECTIONS, type DocPage, docIdOfFile } from "./pages";
+
+/** The pages rendered from Markdown (the playground is drawn by the app and has no text to check). */
+const MARKDOWN_PAGES = DOC_PAGES.filter((p) => !p.custom);
 import { searchDocs } from "./search";
 
 const render = (source: string) => renderMarkdown(source, (file) => (file === "EDITOR.md" ? "editor" : undefined));
@@ -55,7 +58,7 @@ const LANGS = [
 ] as const;
 
 describe.each(LANGS)("documentation pages ($lang)", ({ text }) => {
-  const rendered = new Map(DOC_PAGES.map((p) => [p.id, renderMarkdown(text(p), docIdOfFile)]));
+  const rendered = new Map(MARKDOWN_PAGES.map((p) => [p.id, renderMarkdown(text(p), docIdOfFile)]));
 
   it("has unique ids and files", () => {
     expect(new Set(DOC_PAGES.map((p) => p.id)).size).toBe(DOC_PAGES.length);
@@ -63,11 +66,11 @@ describe.each(LANGS)("documentation pages ($lang)", ({ text }) => {
   });
 
   it("has a text for every page", () => {
-    for (const page of DOC_PAGES) expect(text(page).trim().length, page.file).toBeGreaterThan(100);
+    for (const page of MARKDOWN_PAGES) expect(text(page).trim().length, page.file).toBeGreaterThan(100);
   });
 
   it("starts every page with a single title", () => {
-    for (const page of DOC_PAGES) {
+    for (const page of MARKDOWN_PAGES) {
       const levels = rendered.get(page.id)?.headings.map((h) => h.level) ?? [];
       expect(levels[0], page.file).toBe(1);
       expect(levels.filter((l) => l === 1), page.file).toHaveLength(1);
@@ -75,7 +78,7 @@ describe.each(LANGS)("documentation pages ($lang)", ({ text }) => {
   });
 
   it("has no broken link to another page or to a section", () => {
-    for (const page of DOC_PAGES) {
+    for (const page of MARKDOWN_PAGES) {
       const { html } = rendered.get(page.id) ?? { html: "" };
       for (const [, doc, anchor] of html.matchAll(/data-doc="([^"]*)" data-anchor="([^"]*)"/g)) {
         const target = rendered.get(doc);
@@ -89,7 +92,7 @@ describe.each(LANGS)("documentation pages ($lang)", ({ text }) => {
   });
 
   it("links to other pages by an existing file, never a dead reference", () => {
-    for (const page of DOC_PAGES) {
+    for (const page of MARKDOWN_PAGES) {
       const { html } = rendered.get(page.id) ?? { html: "" };
       expect(html, page.file).not.toMatch(/doc-plain">[^<]*\.md/);
     }
@@ -118,12 +121,12 @@ describe("navigation labels", () => {
 });
 
 describe("French and English say the same thing", () => {
-  it.each(DOC_PAGES.map((p) => [p.file, p] as const))("%s has the same structure in both languages", (_file, page) => {
+  it.each(MARKDOWN_PAGES.map((p) => [p.file, p] as const))("%s has the same structure in both languages", (_file, page) => {
     expect(shape(page.sourceEn)).toEqual(shape(page.source));
   });
 
   it("has an English page for every French page", () => {
-    for (const page of DOC_PAGES) expect(page.sourceEn.length, page.file).toBeGreaterThan(0);
+    for (const page of MARKDOWN_PAGES) expect(page.sourceEn.length, page.file).toBeGreaterThan(0);
   });
 });
 
@@ -196,7 +199,7 @@ describe.each([
   { lang: "en", text: (p: DocPage) => p.sourceEn, usage: "**Usage example**", response: "**Response example**", wsUsage: "### Usage example" },
 ])("API documentation ($lang)", ({ text, usage, response, wsUsage }) => {
   const api = ["api", "rest-api", "websocket", "data-model"].map((id) => DOC_PAGES.find((p) => p.id === id)).filter((p): p is DocPage => p !== undefined);
-  const blocks = (source: string, lang: string) => [...source.matchAll(new RegExp("```" + lang + "\n([\s\S]*?)```", "g"))].map((m) => m[1]);
+  const blocks = (source: string, lang: string) => [...source.matchAll(new RegExp("```" + lang + "\n([\\s\\S]*?)```", "g"))].map((m) => m[1]);
 
   it("has the four pages", () => {
     expect(api.map((p) => p.id)).toEqual(["api", "rest-api", "websocket", "data-model"]);
@@ -239,11 +242,11 @@ describe.each([
     }
   });
 
-  it("documents both WebSocket streams, with an example of use and every message type", () => {
+  it("documents the three WebSocket streams, with an example of use and every message type", () => {
     for (const route of routes.filter((r) => r.endsWith("/ws"))) expect(text(websocket!), route).toContain(`ws://127.0.0.1:24051${route}`);
-    expect(text(websocket!).match(new RegExp(wsUsage, "g"))).toHaveLength(2);
+    expect(text(websocket!).match(new RegExp(wsUsage, "g"))).toHaveLength(3);
     for (const type of ["hello", "state", "status", "event", "pong", "input"]) expect(text(websocket!), type).toContain(`#### \`${type}\``);
-    for (const name of ["connectionChanged", "screenChanged", "beatmapChanged", "modsChanged", "playStarted", "playEnded", "paused", "resumed", "failed"]) {
+    for (const name of ["connectionChanged", "screenChanged", "beatmapChanged", "modsChanged", "playStarted", "playEnded", "paused", "resumed", "failed", "hit", "miss", "comboBreak"]) {
       expect(text(websocket!), name).toContain(`**\`${name}\``);
     }
   });
@@ -280,13 +283,13 @@ describe("screenshots", () => {
 
   const ids = (source: string) => [...source.matchAll(/^> \[!SCREENSHOT\] (\S+)/gm)].map((m) => m[1]);
 
-  it.each(DOC_PAGES.map((p) => [p.file, p] as const))("%s asks for the same pictures in both languages, each once", (_file, page) => {
+  it.each(MARKDOWN_PAGES.map((p) => [p.file, p] as const))("%s asks for the same pictures in both languages, each once", (_file, page) => {
     expect(ids(page.sourceEn)).toEqual(ids(page.source));
     expect(new Set(ids(page.source)).size).toBe(ids(page.source).length);
   });
 
   it("gives every picture a description", () => {
-    for (const page of DOC_PAGES) {
+    for (const page of MARKDOWN_PAGES) {
       for (const text of [page.source, page.sourceEn]) {
         for (const [, id, description] of text.matchAll(/^> \[!SCREENSHOT\] (\S+)\n((?:> [^\n]*\n?)+)/gm)) {
           expect(description.replace(/^> /gm, "").trim().length, `${page.file}: ${id}`).toBeGreaterThan(40);
@@ -302,7 +305,7 @@ describe("screenshots", () => {
   });
 
   it("never leaves a callout marker as plain text", () => {
-    for (const page of DOC_PAGES) {
+    for (const page of MARKDOWN_PAGES) {
       for (const [source, lang] of [[page.source, "fr"], [page.sourceEn, "en"]] as const) {
         expect(renderMarkdown(source, docIdOfFile, { lang }).html, `${page.file} (${lang})`).not.toMatch(/\[!(NOTE|ASTUCE|TIP|IMPORTANT|ATTENTION|WARNING|SCREENSHOT)\]/);
       }

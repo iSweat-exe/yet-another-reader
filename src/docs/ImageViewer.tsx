@@ -1,5 +1,5 @@
 import { type PointerEvent, useCallback, useEffect, useRef, useState } from "react";
-import { Icon } from "../components/Icon";
+import { Icon } from "../components/icons/Icon";
 import { useT } from "../i18n";
 
 export interface ViewedImage {
@@ -121,7 +121,7 @@ export function ImageViewer({ image, onClose }: { image: ViewedImage; onClose: (
           aria-label={t("common.close")}
           title={t("common.close")}
           onClick={leave}
-          className="grid size-10 shrink-0 place-items-center rounded-lg text-ink outline-none transition-[background-color,scale] duration-150 ease-out hover:bg-white/10 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96]"
+          className="grid size-10 shrink-0 place-items-center rounded-lg text-ink outline-none transition-[background-color,scale] duration-150 ease-out hover:bg-wash/10 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96]"
         >
           <Icon name="close" size={18} />
         </button>
@@ -141,7 +141,7 @@ export function ImageViewer({ image, onClose }: { image: ViewedImage; onClose: (
             if (pan.current?.moved) return;
             setActualSize(!actualSize);
           }}
-          className={`m-auto touch-none rounded-lg shadow-[0_0_0_1px_oklch(1_0_0/0.1),0_20px_60px_oklch(0_0_0/0.6)] ${actualSize ? `max-w-none ${panning ? "cursor-grabbing" : "cursor-grab"}` : "max-h-full max-w-full cursor-zoom-in object-contain"}`}
+          className={`m-auto touch-none rounded-lg shadow-[0_0_0_1px_oklch(from_var(--wash)_l_c_h/0.1),0_20px_60px_oklch(0_0_0/0.6)] ${actualSize ? `max-w-none ${panning ? "cursor-grabbing" : "cursor-grab"}` : "max-h-full max-w-full cursor-zoom-in object-contain"}`}
         />
       </div>
     </div>

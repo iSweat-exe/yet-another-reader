@@ -1,5 +1,5 @@
 import { type MessageKey, useT } from "../i18n";
-import type { ReaderStatus } from "../lib/types";
+import type { GcMode, ReaderStatus } from "../lib/state/types";
 
 interface PhaseView {
   text: MessageKey;
@@ -24,6 +24,13 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** `Interactive` is the game's normal GC mode: anything else is shown with its name; none yet before the first play. */
+function gcText(mode: GcMode | null, t: ReturnType<typeof useT>): string {
+  if (mode === null) return t("status.gcUnknown");
+  if (mode === "interactive") return t("status.gcOn");
+  return t("status.gcOff", { mode: mode.charAt(0).toUpperCase() + mode.slice(1) });
+}
+
 /** What the reader is doing with the game: one headline, then the facts of the connection on a single line. */
 export function StatusCard({ status }: { status: ReaderStatus | null }) {
   const t = useT();
@@ -42,6 +49,8 @@ export function StatusCard({ status }: { status: ReaderStatus | null }) {
       {status?.phase === "connected" && (
         <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm starting:opacity-0 transition-opacity duration-200 ease-out motion-reduce:transition-none">
           <Fact label={t("status.version")} value={status.version} />
+          <Fact label={t("status.stream")} value={status.stream} />
+          <Fact label={t("status.gc")} value={gcText(status.gcMode, t)} />
           <Fact label={t("status.profile")} value={status.profile} />
           <Fact label={t("status.connectTime")} value={t("status.seconds", { n: (status.connectMs / 1000).toFixed(1) })} />
         </dl>

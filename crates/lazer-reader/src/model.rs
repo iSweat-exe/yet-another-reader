@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// State of the connection between this app and osu!lazer.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -21,11 +21,41 @@ pub enum ReaderStatus {
     Connecting,
     Connected {
         version: String,
+        /// Release stream of the build (`lazer`, `tachyon`, ...).
+        stream: String,
         profile: String,
         connect_ms: u64,
+        /// The .NET garbage collector's latency mode outside a play, once the game has shown it;
+        /// `interactive` is the normal mode (concurrent GC). `None` until then.
+        gc_mode: Option<GcMode>,
     },
     /// Running but unreadable (layout changed, DAC refused, ...).
     Error { message: String },
+}
+
+/// `System.Runtime.GCLatencyMode`: how eagerly the game's garbage collector works.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum GcMode {
+    Interactive,
+    LowLatency,
+    SustainedLowLatency,
+    NoGcRegion,
+}
+
+impl GcMode {
+    /// From the enum's value. `0` (`Batch`) is what a field the game has not written yet holds, and
+    /// the game never runs in that mode, so it reads as "not known".
+    #[must_use]
+    pub fn from_raw(raw: i32) -> Option<Self> {
+        match raw {
+            1 => Some(Self::Interactive),
+            2 => Some(Self::LowLatency),
+            3 => Some(Self::SustainedLowLatency),
+            4 => Some(Self::NoGcRegion),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Default)]
@@ -47,12 +77,49 @@ pub struct GameState {
     pub beatmap: Option<Beatmap>,
     /// Difficulty with the selected mods; `None` if the `.osu` file could not be read.
     pub difficulty: Option<Difficulty>,
+    /// Strain of the beatmap over its length with the selected mods; `None` while it is being
+    /// computed (it runs off the reading thread) or if the `.osu` file could not be read.
+    pub difficulty_graph: Option<DifficultyGraph>,
     /// Position of the song clock (the gameplay clock while playing).
     pub time: Option<Time>,
     /// The logged-in user, when signed in.
     pub user: Option<User>,
+    /// The users spectating the logged-in user's play right now (empty when nobody does, or offline).
+    pub spectators: Vec<Spectator>,
+    /// Number of spectators (`spectators` is capped, this one is not).
+    pub spectator_count: u32,
     /// Only present while a `Player` screen is on top.
     pub gameplay: Option<Gameplay>,
+    /// The best completed solo play of the current beatmap that the app has seen (`null` before the first).
+    pub personal_best: Option<PersonalBest>,
+}
+
+/// The best completed solo play of a beatmap, as seen by the app (plays made before it ran are unknown).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PersonalBest {
+    pub score: i64,
+    /// Performance points at the end of the play (`0` when they could not be computed).
+    pub pp: f64,
+    /// 0.0 – 1.0.
+    pub accuracy: f64,
+    pub max_combo: i32,
+    pub mods: Vec<String>,
+    /// When the play ended, in milliseconds since the Unix epoch.
+    pub played_at: u64,
+}
+
+/// A personal best with how it unfolded: one sample per second of song time.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PersonalBestGhost {
+    #[serde(flatten)]
+    pub best: PersonalBest,
+    /// `[songTimeMs, score, pp, accuracy]`, in song-time order.
+    pub samples: Vec<[f64; 4]>,
+    /// The highest PP of any completed solo play of this beatmap the app has seen, even when a play
+    /// with a higher score (and so a different `best`) gave less.
+    pub max_pp: f64,
 }
 
 /// The values a Difficulty Adjust mod forces; `None` for a stat it leaves alone.
@@ -238,6 +305,24 @@ pub struct Difficulty {
     pub pp98: f64,
     pub pp99: f64,
     pub pp100: f64,
+    /// Song time of the first hit object, in milliseconds: the "00:00" of a timer that ignores the intro.
+    pub first_object_ms: f64,
+    /// Song time of the last hit object, in milliseconds: the end of that timer (the outro is not counted).
+    pub last_object_ms: f64,
+}
+
+/// How hard each part of the beatmap is, relative to the rest of the same map.
+#[derive(Debug, Clone, PartialEq, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct DifficultyGraph {
+    /// Song time covered by `buckets`, in milliseconds (bucket `i` starts at `i * durationMs / n`).
+    pub duration_ms: f64,
+    /// The overall difficulty: the star rating with the selected mods (same as `difficulty.stars`).
+    pub overall: f64,
+    /// Song time of the hardest bucket, in milliseconds.
+    pub peak_ms: f64,
+    /// Strain per bucket, `0.0` (calmest) to `1.0` (the hardest section of this map).
+    pub buckets: Vec<f32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Default)]
@@ -263,6 +348,17 @@ pub struct User {
     pub statistics: Option<UserStatistics>,
 }
 
+/// A user spectating the logged-in user (`SpectatorClient.WatchingUsers`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Spectator {
+    pub id: i32,
+    pub username: String,
+    /// `https://a.ppy.sh/{id}` for a real account; absent otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
+}
+
 /// Statistics of the user's main ruleset, as last synced by the game.
 #[derive(Debug, Clone, PartialEq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -277,4 +373,27 @@ pub struct UserStatistics {
     pub max_combo: i32,
     pub ranked_score: i64,
     pub total_score: i64,
+}
+
+#[cfg(test)]
+mod spectator_tests {
+    use super::*;
+
+    #[test]
+    fn spectator_should_omit_a_missing_avatar() {
+        let json = serde_json::to_value(Spectator {
+            id: 0,
+            username: "guest".into(),
+            avatar_url: None,
+        })
+        .unwrap();
+        assert!(json.get("avatarUrl").is_none());
+    }
+
+    #[test]
+    fn game_state_should_serialise_spectators_additively() {
+        let json = serde_json::to_value(GameState::default()).unwrap();
+        assert_eq!(json["spectators"], serde_json::json!([]));
+        assert_eq!(json["spectatorCount"], 0);
+    }
 }

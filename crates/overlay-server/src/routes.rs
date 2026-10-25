@@ -5,10 +5,11 @@ use std::sync::Arc;
 
 use axum::Json;
 use axum::extract::{Request, State};
-use axum::http::{StatusCode, header};
+use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use lazer_reader::model::{
-    Beatmap, Difficulty, GameState, Gameplay, Pp, ReaderStatus, Screen, Time, User,
+    Beatmap, Difficulty, DifficultyGraph, GameState, Gameplay, PersonalBestGhost, Pp, ReaderStatus,
+    Screen, Time, User,
 };
 use lazer_reader::pp::store_path;
 use serde::Serialize;
@@ -18,6 +19,7 @@ use tower_http::services::ServeFile;
 
 use crate::API_VERSION;
 use crate::hub::{ApiSettings, Hub, InputSnapshot, Snapshot};
+use crate::images;
 
 /// The pages of the API documentation, in reading order, as files of `docs/`.
 const DOC_PAGES: [(&str, &str); 4] = [
@@ -127,6 +129,8 @@ pub struct AppState {
     pub storage_root: Option<Arc<PathBuf>>,
     /// Folder of community widgets.
     pub widgets_dir: Option<Arc<PathBuf>>,
+    /// Folder of the pictures imported for the `image` widget.
+    pub images_dir: Option<Arc<PathBuf>>,
     /// Becomes `true` when the server is stopped: open WebSockets end instead of outliving it.
     pub shutdown: Arc<watch::Sender<bool>>,
 }
@@ -168,6 +172,7 @@ pub struct Index {
     app_version: &'static str,
     websocket: &'static str,
     inputs_websocket: &'static str,
+    events_websocket: &'static str,
     documentation: &'static str,
     endpoints: &'static [Endpoint],
 }
@@ -212,6 +217,10 @@ const ENDPOINTS: &[Endpoint] = &[
         description: "Star rating and PP table with the selected mods.",
     },
     Endpoint {
+        path: "/api/v1/difficulty-graph",
+        description: "Strain of the beatmap over its length with the selected mods (null while computing).",
+    },
+    Endpoint {
         path: "/api/v1/mods",
         description: "Selected mods and ruleset.",
     },
@@ -230,6 +239,10 @@ const ENDPOINTS: &[Endpoint] = &[
     Endpoint {
         path: "/api/v1/pp",
         description: "Live / FC / SS performance points (null outside a play).",
+    },
+    Endpoint {
+        path: "/api/v1/personal-best",
+        description: "Best completed solo play of the current beatmap seen by the app, with per-second samples (null before the first).",
     },
     Endpoint {
         path: "/api/v1/hit-errors",
@@ -252,12 +265,20 @@ const ENDPOINTS: &[Endpoint] = &[
         description: "Current beatmap audio file (supports Range).",
     },
     Endpoint {
+        path: "/api/v1/images/{id}",
+        description: "A picture imported for the image widget.",
+    },
+    Endpoint {
         path: "/api/v1/widgets",
         description: "Community widgets found in the widgets folder.",
     },
     Endpoint {
         path: "/api/v1/ws",
         description: "WebSocket stream of state, status and events.",
+    },
+    Endpoint {
+        path: "/api/v1/events/ws",
+        description: "WebSocket stream of events only (a note hit, a miss, a play started...), filterable with ?names=.",
     },
     Endpoint {
         path: "/api/v1/docs",
@@ -272,6 +293,7 @@ pub async fn index() -> Json<Index> {
         app_version: env!("CARGO_PKG_VERSION"),
         websocket: "/api/v1/ws",
         inputs_websocket: "/api/v1/inputs/ws",
+        events_websocket: "/api/v1/events/ws",
         documentation: "/api/v1/docs",
         endpoints: ENDPOINTS,
     })
@@ -330,6 +352,10 @@ pub async fn beatmap(State(s): State<AppState>) -> Json<Option<Beatmap>> {
     Json(s.hub.game().beatmap)
 }
 
+pub async fn difficulty_graph(State(s): State<AppState>) -> Json<Option<DifficultyGraph>> {
+    Json(s.hub.game().difficulty_graph)
+}
+
 pub async fn difficulty(State(s): State<AppState>) -> Json<Option<Difficulty>> {
     Json(s.hub.game().difficulty)
 }
@@ -359,6 +385,11 @@ pub async fn user(State(s): State<AppState>) -> Json<Option<User>> {
 
 pub async fn gameplay(State(s): State<AppState>) -> Json<Option<Gameplay>> {
     Json(s.hub.game().gameplay)
+}
+
+/// The best completed solo play of the current beatmap the app has seen, with its per-second samples.
+pub async fn personal_best(State(s): State<AppState>) -> Json<Option<PersonalBestGhost>> {
+    Json(s.hub.ghost().map(|g| (*g).clone()))
 }
 
 pub async fn pp(State(s): State<AppState>) -> Json<Option<Pp>> {
@@ -457,6 +488,47 @@ pub async fn asset(kind: Asset, s: AppState, req: Request) -> Result<Response, A
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "io", e.to_string()))
 }
 
+/// Serves a picture imported for the `image` widget. The id is checked against the exact shape of the ids
+/// the app makes, so nothing but a file of the images folder can be reached.
+pub async fn image(
+    State(s): State<AppState>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+    req: Request,
+) -> Result<Response, ApiError> {
+    let kind = images::kind_of_id(&id).ok_or_else(|| ApiError::not_found("no such picture"))?;
+    let path = s
+        .images_dir
+        .as_deref()
+        .and_then(|dir| images::path_for(dir, &id))
+        .filter(|p| p.is_file())
+        .ok_or_else(|| ApiError::not_found("no such picture"))?;
+    let mime = kind
+        .mime()
+        .parse()
+        .map_err(|_| ApiError::not_found("unknown media type"))?;
+    let mut response = ServeFile::new_with_mime(path, &mime)
+        .oneshot(req)
+        .await
+        .map(IntoResponse::into_response)
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "io", e.to_string()))?;
+    let headers = response.headers_mut();
+    // The id is a hash of the content: the answer never changes.
+    headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=31536000, immutable"),
+    );
+    // An SVG opened on its own gets no script, no network and no origin of its own.
+    headers.insert(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static("sandbox; default-src 'none'; style-src 'unsafe-inline'"),
+    );
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+    Ok(response)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -479,7 +551,7 @@ mod tests {
             input_poll_interval_ms: 2,
             port: 24051,
         });
-        assert!(hub.publish_inputs(InputState::from_codes(vec![108, 83], vec![0])));
+        assert!(hub.publish_inputs(&InputState::from_codes(vec![108, 83], vec![0])));
         assert!(!hub.inputs_wanted());
 
         let app = crate::router(hub.clone(), None, None);

@@ -45,6 +45,32 @@ pub enum Event {
     Paused,
     Resumed,
     Failed,
+    /// Notes were hit since the last state. `judgement` is `great`, `ok` or `meh`; `count` is how many
+    /// (several can land between two samples). `errorsMs` are the timing errors of the newest hits
+    /// (negative = early), empty when the game gave none (sliders, spinners).
+    Hit {
+        judgement: Judgement,
+        count: u32,
+        errors_ms: Vec<f32>,
+        combo: i32,
+    },
+    /// Notes were missed since the last state.
+    Miss {
+        count: u32,
+        combo: i32,
+    },
+    /// The combo fell: `lost` is the combo that was just broken (a miss, a slider break...).
+    ComboBreak {
+        lost: i32,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Judgement {
+    Great,
+    Ok,
+    Meh,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -112,10 +138,53 @@ pub fn diff(prev: &GameState, next: &GameState) -> Vec<Event> {
             if !a.failed && b.failed {
                 out.push(Event::Failed);
             }
+            hit_events(a, b, &mut out);
         }
         (None, None) => {}
     }
     out
+}
+
+/// Per-note events: the judgement counters only go up during a play, so a rise is new notes.
+fn hit_events(a: &Gameplay, b: &Gameplay, out: &mut Vec<Event>) {
+    let rise = |from: i32, to: i32| u32::try_from(to.saturating_sub(from)).unwrap_or(0);
+    let hits = [
+        (Judgement::Great, rise(a.hits.great, b.hits.great)),
+        (Judgement::Ok, rise(a.hits.ok, b.hits.ok)),
+        (Judgement::Meh, rise(a.hits.meh, b.hits.meh)),
+    ];
+    let new_hits: u32 = hits.iter().map(|(_, n)| n).sum();
+    // The ring holds the newest errors last; only trust it when it moved.
+    let errors: Vec<f32> = if a.hit_errors == b.hit_errors {
+        Vec::new()
+    } else {
+        let keep = (new_hits as usize).min(b.hit_errors.len());
+        b.hit_errors[b.hit_errors.len() - keep..].to_vec()
+    };
+    for (judgement, count) in hits {
+        if count > 0 {
+            out.push(Event::Hit {
+                judgement,
+                count,
+                errors_ms: if new_hits == count {
+                    errors.clone()
+                } else {
+                    Vec::new()
+                },
+                combo: b.combo,
+            });
+        }
+    }
+    let misses = rise(a.hits.miss, b.hits.miss);
+    if misses > 0 {
+        out.push(Event::Miss {
+            count: misses,
+            combo: b.combo,
+        });
+    }
+    if b.combo < a.combo {
+        out.push(Event::ComboBreak { lost: a.combo });
+    }
 }
 
 #[cfg(test)]
@@ -212,6 +281,52 @@ mod tests {
         paused.gameplay.as_mut().unwrap().paused = true;
         assert_eq!(diff(&playing(), &paused), vec![Event::Paused]);
         assert_eq!(diff(&paused, &playing()), vec![Event::Resumed]);
+    }
+
+    fn with_hits(great: i32, miss: i32, combo: i32) -> GameState {
+        let mut state = playing();
+        let g = state.gameplay.as_mut().unwrap();
+        g.hits.great = great;
+        g.hits.miss = miss;
+        g.combo = combo;
+        state
+    }
+
+    #[test]
+    fn diff_should_report_hits_with_their_count() {
+        let events = diff(&with_hits(1, 0, 1), &with_hits(3, 0, 3));
+        assert_eq!(
+            events,
+            vec![Event::Hit {
+                judgement: Judgement::Great,
+                count: 2,
+                errors_ms: vec![],
+                combo: 3
+            }]
+        );
+    }
+
+    #[test]
+    fn diff_should_report_a_miss_and_the_broken_combo() {
+        let events = diff(&with_hits(5, 0, 5), &with_hits(5, 1, 0));
+        assert!(events.contains(&Event::Miss { count: 1, combo: 0 }));
+        assert!(events.contains(&Event::ComboBreak { lost: 5 }));
+    }
+
+    #[test]
+    fn diff_should_report_a_combo_break_without_a_miss() {
+        let events = diff(&with_hits(5, 0, 5), &with_hits(5, 0, 0));
+        assert_eq!(events, vec![Event::ComboBreak { lost: 5 }]);
+    }
+
+    #[test]
+    fn diff_should_attach_the_newest_hit_error() {
+        let mut next = with_hits(2, 0, 2);
+        next.gameplay.as_mut().unwrap().hit_errors = vec![3.0, -7.5];
+        let mut prev = with_hits(1, 0, 1);
+        prev.gameplay.as_mut().unwrap().hit_errors = vec![3.0];
+        let events = diff(&prev, &next);
+        assert!(matches!(&events[0], Event::Hit { errors_ms, .. } if errors_ms == &[-7.5]));
     }
 
     #[test]

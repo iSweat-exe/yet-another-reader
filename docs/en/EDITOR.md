@@ -38,8 +38,18 @@ A widget that is added goes on the displayed page; its properties let you show i
 - **Selection rectangle**: drag over the empty screen. `Ctrl + A` selects everything.
 - **Drag**: moves the selection. The **handles** of a single widget resize it; `Shift` keeps its proportions.
 - **Snapping**: the widget aligns to the edges and centres of the screen and of the other widgets (guide
-  lines). `Alt` turns it off while dragging. The optional **Grid** (10 px) helps placement.
+  lines). `Alt` turns it off while dragging. The optional **Grid** helps placement: its size is adjustable (2 to 200 px, 10 by default) in the field that appears next to the button.
 - **Arrows**: move by one pixel (`Shift`: 10).
+- **Rotation**: the circle above the frame of a selection turns it around its centre; the widget follows the pointer
+  exactly. `Shift`: 15° steps. **Double-click** the circle: back to 0°. `Escape` during the gesture cancels it. One
+  gesture = one history entry. The **Rotation (°)** field of the inspector (typing, slider, reset button) sets the value
+  of a single widget.
+- A turned widget keeps its handles, which follow its rotation: they move the edge along the widget's own axis and the
+  opposite edge stays fixed. Clicking and the selection rectangle aim at the turned shape.
+- **Multi-selection and groups**: the rotation is rigid. Each widget turns around the centre of the selection (so a
+  group turns as one block): its position orbits that centre and its own angle grows by the same amount.
+- **Snapping and guides**: they work on the bounding box of the turned widget, as you see it. Resizing a turned widget
+  does not snap to guides.
 
 > [!SCREENSHOT] selection-handles
 > A single widget selected on the preview screen: pink frame, eight white handles (corners and mid-points), a pink label
@@ -60,6 +70,18 @@ follows the position. Untick then tick **Automatic anchor** to go back to automa
 > [!SCREENSHOT] anchor-selector
 > **Placement** section of the Properties: the 3×3 anchor selector with "Top right" in pink, the X, Y, W, H fields, and
 > the "Automatic anchor" switch with its help text. Show the on state then the off state (anchor fixed) side by side.
+
+## Smart alignment
+
+While dragging, the widget **snaps** by itself, and the editor draws what it snapped to:
+
+- **Edges and centres**: those of the screen and of the other widgets, with pink guide lines;
+- **The grid**, when it is shown;
+- **Equal spacing**: the widget takes the **gap that two other widgets already have between them**, or **centres itself between its two neighbours** so that both gaps are equal. Pink **dimension markers** show the distance in pixels. Only widgets that **overlap on the other axis** count: a gap between two widgets of different rows means nothing.
+
+`Alt` turns all the snapping off for the current gesture.
+
+The fields and buttons of [Alignment](#alignment) and [Spacing](#spacing) (align, distribute, gaps) set the same thing by hand. With several widgets selected, **Same size** (*Width*, *Height* or *Both*, in **Properties → Spacing**) gives all of them the size of the **first selected widget**; locked widgets do not change.
 
 ## Alignment
 
@@ -113,20 +135,32 @@ with the original. A group that no longer contains more than one widget is disso
 
 | Section | Content |
 | --- | --- |
-| Header | The **Name** shown in the editor, duplicate, delete. |
+| Header | The **Name** shown in the editor, duplicate, delete. For a built-in widget, the **View source code** button opens, read-only, the file that defines it (the text is inside the application, nothing is downloaded). |
 | **Placement** | Anchor (3×3), `X`, `Y`, `W`, `H`, **Automatic anchor**. |
 | **Pages** | The pages where the widget is displayed (at least one). |
-| **Style** | Colour, **Text size** (multiplier), **Opacity**, **Text alignment** (auto = follows the anchor), **Animate numbers** and its duration. |
+| **Style** | Colour, **Text size** (multiplier), **Opacity** (a 0 to 100 % slider), **Text alignment** (auto = follows the anchor), **Animate numbers** and its duration. |
+| **Typography** | **Font** (built-in, or imported from a TTF, OTF, WOFF or WOFF2 file), **Weight**, **Letter spacing**, **Shadow** (automatic, none, soft, strong, glow) and **Outline**. For built-in widgets. |
 | **Options** | For a community widget: the options of its manifest. |
 
 > [!SCREENSHOT] properties-panel
 > Complete **Properties** panel of a Score widget, the whole panel visible (in two images if needed): header with the
 > name, Placement, Pages (six switches), Style. Label each section with its name from the table.
 
+## Copying and pasting the style
+
+To give widgets the look of another one without touching their position or size:
+
+1. select the model widget, then **Copy the style** (properties header, the widget's context menu, `Ctrl + Alt + C` or the [command palette](#command-palette));
+2. select one or more widgets, then **Paste the style** (same places, `Ctrl + Alt + V`).
+
+The copied **style** is that of the *Style* and *Typography* sections: colour, text size, opacity, alignment, number animation and typography. **Locked** widgets are skipped. If several widgets are selected when you copy, the first one is the model. Pasting is **a single** undo step.
+
 ## Layers
 
 The layers list the widgets **of the displayed page**, from the front to the back. Each line lets you **move up /
-down** the widget in the stacking order and **lock** it (a locked widget can neither be moved nor deleted).
+down** the widget in the stacking order and **lock** it (a locked widget can neither be moved nor deleted, and can no longer
+be selected by clicking the preview: only here). Drag a line to **reorder** it; `Escape` cancels. A line shows what tells
+two widgets of the same kind apart (the key of a key cap, the words of a text).
 
 > [!SCREENSHOT] layers-panel
 > **Layers** panel of the Playing page: about ten widgets from front to back, one hovered line showing the move up /
@@ -134,7 +168,7 @@ down** the widget in the stacking order and **lock** it (a locked widget can nei
 
 ## Managing several layouts
 
-Create as many named layouts as you like: **New…** (**Classic**, **Minimal** or **Empty** template),
+Create as many named layouts as you like: **New…** (**Classic**, **Minimal**, **Top graph**, **Inputs**, **Focus** or **Empty** template),
 **Duplicate…**, **Rename…**, **Delete**. **Use in game** chooses the one the overlay displays (the **Active in
 game** badge marks the active one).
 
@@ -142,8 +176,24 @@ game** badge marks the active one).
 > Top bar with the layout list open (default, Stream, Minimal, the active layout ticked) and, on the right, the New,
 > Duplicate, Rename, Import, Export, Delete buttons, the tooltip of one of them visible.
 
-**Import / export**: **Export…** gives the JSON of the layout (to copy or download); **Import…** accepts pasted
-JSON or a file. This is how you share a layout.
+**Import / export**: see [Sharing a layout](#sharing-a-layout).
+
+## Sharing a layout
+
+**Export…** gives two things:
+
+- a **`.yarlayout` file** (**Download file**): JSON that contains the layout **and every picture and font it uses**, encoded in base64. A layout alone only keeps the *ids* of its pictures and fonts, which mean nothing on another computer: the file carries them along. It weighs **40 MB** at most, for **64 files** at most;
+- a **share code** `yar1:…` (**Copy the code**): the same content, compressed, as a short text to paste in a message. It is only offered if it is **120,000 characters at most**; beyond that, share the file.
+
+A layout whose picture or font is no longer in the application cannot be exported: import it again, or remove the widget that uses it.
+
+**Import…** accepts a **file** (`.yarlayout` or `.json`), a `yar1:…` **code**, the pasted **text of a file**, or a **plain layout JSON** (what the editor exported before). The embedded pictures and fonts are imported **under the same id** (an id is the hash of its content), so the layout works straight away. An invalid file, or an embedded file that is neither a valid picture nor a valid font, is **refused**.
+
+## Saved versions
+
+Auto-save overwrites the file on every change; to go back, the **Saved versions** button (a clock, next to Undo / Redo)
+lists the older versions of the layout, kept before a burst of changes overwrote it (at most one every two minutes, the
+latest 40). Pick one to see it, then **Restore this version**: it is an edit like any other, which `Ctrl + Z` undoes.
 
 ## Saving
 
@@ -153,6 +203,13 @@ With **Auto-save**, each change is saved half a second later and the in-game ove
 > [!SCREENSHOT] save-state
 > Two cropped details side by side: at the top right of the top bar, the green "Saved" indicator with its tick; and,
 > next to it, the amber "Unsaved changes" state. Under each, the "Auto-save" switch.
+
+## Command palette
+
+`Ctrl + K` (or the magnifier button) opens the command palette: one search to **add a widget**, **open a layout**,
+change the **theme** or the preview **background**, go to a **page**, or run an action (save, undo, grid, snapping, copy or paste the style). The
+arrows move through the list, `Enter` runs, `Escape` closes. As you move through the list, the right side shows the
+result: the real widget, the theme's miniature or the background.
 
 ## Preview data
 
@@ -166,12 +223,16 @@ game) or **Live** (the real state of osu!lazer).
 | `Delete` / `Backspace` | Delete the selection |
 | `Ctrl + Z` / `Ctrl + Y` (or `Ctrl + Shift + Z`) | Undo / redo |
 | `Ctrl + C` / `Ctrl + V` / `Ctrl + D` | Copy / paste / duplicate |
+| `Ctrl + Alt + C` / `Ctrl + Alt + V` | Copy / paste the style |
 | `Ctrl + G` / `Ctrl + Shift + G` | Group / ungroup |
 | `Ctrl + A` | Select all |
 | Arrows (`Shift`: ×10) | Move the selection |
 | `Alt` while dragging | Turn snapping off |
 | `Shift` while resizing | Keep the proportions |
+| `Shift` while rotating | 15° steps |
+| `Escape` during a gesture | Cancel the gesture (move, resize, rotate) |
 | `Ctrl + S` | Save |
+| `Ctrl + K` | Command palette |
 | `Escape` | Deselect |
 
 > [!SCREENSHOT] shortcuts-bar

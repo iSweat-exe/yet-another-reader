@@ -6,7 +6,7 @@ pub enum ReaderError {
     #[error("osu!lazer is not running")]
     ProcessNotFound,
 
-    #[error("process {pid} is not osu!lazer (osu.Game.dll is not loaded)")]
+    #[error("process {pid} is not a lazer build (osu.Game.dll is not loaded)")]
     NotLazer { pid: u32 },
 
     #[error("{op} failed: {message}")]
@@ -23,6 +23,9 @@ pub enum ReaderError {
 
     #[error("no version resource in {}", .0.display())]
     NoVersionInfo(PathBuf),
+
+    #[error("not supported on this platform: {0}")]
+    Unsupported(&'static str),
 }
 
 pub type Result<T, E = ReaderError> = std::result::Result<T, E>;

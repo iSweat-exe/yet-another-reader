@@ -1,19 +1,25 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n";
-import { isTauri } from "../lib/mock";
-import { saveSettings } from "../lib/store";
-import { FPS_LIMITS, INPUT_POLL_LIMITS, MIN_PORT, POLL_LIMITS, type RtssStatus, type Settings } from "../lib/types";
+import { LANGUAGES } from "../i18n/languages";
+import { isTauri } from "../lib/state/mock";
+import { playSfx, setSfxPrefs, useSfxPrefs } from "../lib/audio/sfx";
+import { saveSettings } from "../lib/state/store";
+import { FPS_LIMITS, INPUT_POLL_LIMITS, MIN_PORT, POLL_LIMITS, type RtssStatus, type Settings } from "../lib/state/types";
 import { Group, NumberField, Row, Slider, Switch } from "./controls";
-import { Icon } from "./Icon";
-import { Select } from "./Select";
-import { UpdateRows } from "./UpdateRows";
+import { Icon } from "./icons/Icon";
+import { Select } from "./select/Select";
+import { UpdateRows } from "./updates/UpdateRows";
 
 const outlineButton =
-  "min-h-10 rounded-lg px-3 text-sm text-ink shadow-[0_0_0_1px_oklch(1_0_0/0.12)] outline-none transition-[scale,background-color,box-shadow] duration-150 ease-out hover:bg-white/6 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100";
+  "min-h-10 rounded-lg px-3 text-sm text-ink shadow-[0_0_0_1px_oklch(from_var(--wash)_l_c_h/0.12)] outline-none transition-[scale,background-color,box-shadow] duration-150 ease-out hover:bg-wash/6 focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100";
+
+const textInput =
+  "min-h-10 rounded-lg bg-transparent px-3 text-sm text-ink shadow-[0_0_0_1px_oklch(from_var(--wash)_l_c_h/0.12)] outline-none placeholder:text-ink-dim focus-visible:shadow-[0_0_0_2px_var(--color-accent)]";
 
 export function SettingsCard({ settings, rtss }: { settings: Settings; rtss: RtssStatus | null }) {
   const t = useT();
+  const sounds = useSfxPrefs();
   const [draft, setDraft] = useState(settings);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -59,12 +65,33 @@ export function SettingsCard({ settings, rtss }: { settings: Settings; rtss: Rts
             onChange={(language) => set({ language })}
             align="end"
             className="w-40"
-            options={[
-              { value: "auto", label: t("settings.languageAuto") },
-              { value: "fr", label: "Français" },
-              { value: "en", label: "English" },
-            ]}
+            options={[{ value: "auto", label: t("settings.languageAuto") }, ...LANGUAGES.map((l) => ({ value: l.code, label: l.name }))]}
           />
+        </Row>
+        {/* Applied at once and kept in this window's storage (not part of the reader's settings, so not part of the Apply bar). */}
+        <Row id="sounds" label={t("settings.sounds")} hint={t("settings.soundsHint")}>
+          <Switch
+            id="sounds"
+            checked={sounds.enabled}
+            onChange={(enabled) => {
+              // Turning off is heard by the standard switch sound (it plays before the change); turning on has to play it itself.
+              setSfxPrefs({ enabled });
+              if (enabled) playSfx("check-on");
+            }}
+          />
+        </Row>
+        <Row id="sounds-volume" label={t("settings.soundsVolume")} disabled={!sounds.enabled}>
+          <div className={`w-40 transition-opacity duration-150 ease-out ${sounds.enabled ? "" : "pointer-events-none opacity-50"}`}>
+            <Slider
+              label={t("settings.soundsVolume")}
+              min={0}
+              max={100}
+              value={Math.round(sounds.volume * 100)}
+              onChange={(percent) => {
+                setSfxPrefs({ volume: percent / 100 });
+              }}
+            />
+          </div>
         </Row>
       </Group>
 
@@ -130,6 +157,36 @@ export function SettingsCard({ settings, rtss }: { settings: Settings; rtss: Rts
         )}
       </Group>
 
+      <Group title={t("settings.group.nowPlaying")}>
+        <Row id="np-enabled" label={t("settings.nowPlaying")} hint={t("settings.nowPlayingHint")}>
+          <Switch id="np-enabled" checked={draft.nowPlayingEnabled} onChange={(nowPlayingEnabled) => set({ nowPlayingEnabled })} />
+        </Row>
+        {draft.nowPlayingEnabled && (
+          <>
+            <Row appear id="np-template" label={t("settings.nowPlayingTemplate")} hint={t("settings.nowPlayingTemplateHint")}>
+              <input
+                id="np-template"
+                value={draft.nowPlayingTemplate}
+                maxLength={500}
+                spellCheck={false}
+                onChange={(e) => set({ nowPlayingTemplate: e.target.value })}
+                className={`${textInput} w-72`}
+              />
+            </Row>
+            <Row appear id="np-dir" label={t("settings.nowPlayingDir")} hint={t("settings.nowPlayingDirHint")}>
+              <input
+                id="np-dir"
+                value={draft.nowPlayingDir}
+                placeholder={t("settings.nowPlayingDirDefault")}
+                spellCheck={false}
+                onChange={(e) => set({ nowPlayingDir: e.target.value })}
+                className={`${textInput} w-72`}
+              />
+            </Row>
+          </>
+        )}
+      </Group>
+
       <Group title={t("settings.group.network")}>
         <Row id="api-enabled" label={t("settings.api")} hint={t("settings.apiHint")}>
           <Switch id="api-enabled" checked={draft.apiEnabled} onChange={(apiEnabled) => set({ apiEnabled })} />
@@ -142,7 +199,7 @@ export function SettingsCard({ settings, rtss }: { settings: Settings; rtss: Rts
       {/* Sticks to the bottom of the page while there is something to apply; stays out of the way (and of the tab order) otherwise. */}
       <div
         inert={!barVisible}
-        className={`sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-xl bg-menu py-2 pr-2 pl-4 shadow-[0_0_0_1px_oklch(1_0_0/0.1),0_8px_24px_oklch(0_0_0/0.45)] transition-[opacity,translate] ease-out motion-reduce:transition-none ${barVisible ? "translate-y-0 opacity-100 duration-200" : "pointer-events-none translate-y-2 opacity-0 duration-150"}`}
+        className={`sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-xl bg-menu py-2 pr-2 pl-4 shadow-[0_0_0_1px_oklch(from_var(--wash)_l_c_h/0.1),0_8px_24px_oklch(0_0_0/0.45)] transition-[opacity,translate] ease-out motion-reduce:transition-none ${barVisible ? "translate-y-0 opacity-100 duration-200" : "pointer-events-none translate-y-2 opacity-0 duration-150"}`}
       >
         <p role={error ? "alert" : "status"} className={`flex min-w-0 items-center gap-2 text-sm ${error ? "text-red-400" : saved && !dirty ? "text-emerald-400" : "text-ink"}`}>
           <Icon name={error ? "close" : saved && !dirty ? "check-circle" : "pencil"} size={14} />
@@ -156,7 +213,7 @@ export function SettingsCard({ settings, rtss }: { settings: Settings; rtss: Rts
               setError(null);
               setDraft(settings);
             }}
-            className="min-h-10 rounded-lg px-3 text-sm text-ink-dim outline-none transition-[color,background-color,scale] duration-150 ease-out hover:bg-white/6 hover:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100"
+            className="min-h-10 rounded-lg px-3 text-sm text-ink-dim outline-none transition-[color,background-color,scale] duration-150 ease-out hover:bg-wash/6 hover:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)] active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100"
           >
             {t("common.cancel")}
           </button>

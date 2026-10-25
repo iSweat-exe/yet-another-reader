@@ -10,6 +10,7 @@ use tauri::State;
 use crate::api::ApiSupervisor;
 use crate::diag::Diag;
 use crate::layout;
+use crate::nowplaying;
 use crate::overlay::OverlayControl;
 use crate::rtss::RtssControl;
 use crate::settings::{self, Settings};
@@ -30,6 +31,7 @@ pub(crate) struct AppContext {
     pub(crate) overlay_fps: Arc<AtomicU32>,
     pub(crate) overlay: Arc<OverlayControl>,
     pub(crate) rtss: Arc<RtssControl>,
+    pub(crate) now_playing: nowplaying::SharedConfig,
     pub(crate) api: ApiSupervisor,
     pub(crate) diag: Diag,
     pub(crate) updater: Updater,
@@ -56,6 +58,18 @@ impl AppContext {
         self.overlay.pages_mask.store(mask, Ordering::Relaxed);
     }
 
+    pub(crate) fn now_playing_config(&self, s: &Settings) -> nowplaying::NowPlayingConfig {
+        nowplaying::NowPlayingConfig {
+            enabled: s.now_playing_enabled,
+            dir: if s.now_playing_dir.trim().is_empty() {
+                self.config_dir.join("nowplaying")
+            } else {
+                PathBuf::from(s.now_playing_dir.trim())
+            },
+            template: s.now_playing_template.clone(),
+        }
+    }
+
     /// Pushes the values the background threads read.
     pub(crate) fn apply_live(&self, s: &Settings) {
         self.poll_ms.store(s.poll_interval_ms, Ordering::Relaxed);
@@ -72,6 +86,10 @@ impl AppContext {
         self.rtss.x.store(s.rtss_x, Ordering::Relaxed);
         self.rtss.y.store(s.rtss_y, Ordering::Relaxed);
         self.hub.set_settings(api_settings(s));
+        *self
+            .now_playing
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = self.now_playing_config(s);
     }
 }
 

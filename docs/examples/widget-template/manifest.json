@@ -1,0 +1,9 @@
+{
+  "name": "__NAME__",
+  "version": "0.1.0",
+  "author": "",
+  "description": "",
+  "entry": "index.html",
+  "defaultSize": { "w": 320, "h": 120 },
+  "options": []
+}

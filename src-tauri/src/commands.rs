@@ -130,8 +130,15 @@ pub fn save_layout(
 ) -> Result<(), String> {
     checked_name(&name)?;
     layout::validate(&layout)?;
-    layout::save(&layout::path_for(&ctx.config_dir, &name), &layout)
-        .map_err(|e| format!("Could not save the layout: {e}"))?;
+    let path = layout::path_for(&ctx.config_dir, &name);
+    // What the file holds now becomes a version (at most one every two minutes) before it is replaced.
+    if let Some(previous) = layout::load(&path) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(0));
+        let _ = layout::record_version(&ctx.config_dir, &name, &previous, now);
+    }
+    layout::save(&path, &layout).map_err(|e| format!("Could not save the layout: {e}"))?;
     if name == ctx.current_settings().active_layout {
         ctx.refresh_pages(&name);
         let _ = app.emit(
@@ -142,12 +149,27 @@ pub fn save_layout(
     Ok(())
 }
 
+/// The older versions kept of a layout, newest first (see `layout::record_version`).
+#[tauri::command]
+pub fn list_layout_versions(ctx: Ctx<'_>, name: String) -> Result<Vec<layout::Version>, String> {
+    checked_name(&name)?;
+    Ok(layout::versions(&ctx.config_dir, &name))
+}
+
+/// One of those versions, or `null` when it is gone.
+#[tauri::command]
+pub fn get_layout_version(ctx: Ctx<'_>, name: String, id: u64) -> Result<Option<Value>, String> {
+    checked_name(&name)?;
+    Ok(layout::load_version(&ctx.config_dir, &name, id))
+}
+
 /// Deletes a layout. Deleting the active one falls back to `default`.
 #[tauri::command]
 pub fn delete_layout(app: AppHandle, ctx: Ctx<'_>, name: String) -> Result<(), String> {
     checked_name(&name)?;
     layout::delete(&layout::path_for(&ctx.config_dir, &name))
         .map_err(|e| format!("Could not delete the layout: {e}"))?;
+    layout::delete_history(&ctx.config_dir, &name);
     let fallback = {
         let mut s = ctx.settings.lock().unwrap_or_else(PoisonError::into_inner);
         if s.active_layout != name {
@@ -177,6 +199,15 @@ pub fn open_widgets_folder(ctx: Ctx<'_>) -> Result<(), String> {
         .spawn()
         .map(drop)
         .map_err(|e| format!("Could not open the folder: {e}"))
+}
+
+/// Creates a widget from the template (manifest and page) and returns its id.
+///
+/// The widgets folder is watched, so the editor's list and any open overlay pick it up on their own.
+#[tauri::command]
+pub fn create_widget(ctx: Ctx<'_>, name: String, lang: Option<String>) -> Result<String, String> {
+    std::fs::create_dir_all(&ctx.widgets_dir).map_err(|e| e.to_string())?;
+    overlay_server::widgets::scaffold(&ctx.widgets_dir, &name, lang.as_deref().unwrap_or("en"))
 }
 
 /// Path of the widgets folder, for display.

@@ -33,8 +33,8 @@ jeu directement, ce qui coûte en latence et en régularité. L'application limi
   ~1 s après). Par défaut les widgets sont sur les pages de partie ; aux menus, le jeu est affiché
   normalement. Si tu ajoutes des widgets à d'autres pages (sélection de musique, résultats, menu), la
   fenêtre apparaît aussi sur ces pages.
-- **Rafraîchissement réglable** (réglages → « Rafraîchissement de l'overlay », 5–144 fps, 30 par
-  défaut). C'est aussi la cadence des animations. Baisse-le si tu sens une gêne.
+- **Rafraîchissement réglable** (réglages → « Rafraîchissement de l'overlay », 5–360 fps, 30 par
+  défaut). C'est aussi la cadence des animations. Baisse-le si tu sens une gêne. Au-delà de la fréquence de ton écran, monter ne change rien, et les valeurs du jeu ne sont lues que toutes les `pollIntervalMs`.
 - **Rendu léger** : ombres de texte minimales, chiffres animés sans re-rendu React.
 - Hors partie, seuls les changements utiles sont envoyés à l'overlay (pas le tic de l'horloge).
 

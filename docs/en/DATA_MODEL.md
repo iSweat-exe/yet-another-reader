@@ -21,9 +21,13 @@ The common conventions (`camelCase`, `null`, units) are in the [guide](API.md#co
 | `difficultyAdjust` | `DifficultyAdjust` \| null | Values forced by Difficulty Adjust: `cs`, `ar`, `od`, `hp` (`null` for a stat left alone). `null` without that mod. |
 | `beatmap` | `Beatmap` \| null | Selected beatmap. |
 | `difficulty` | `Difficulty` \| null | Stars and PP with the mods. |
+| `difficultyGraph` | `DifficultyGraph` \| null | How hard the map is along the song, with the mods. `null` while it is being computed (a fraction of a second after the map is picked) or if the `.osu` file cannot be found. |
 | `time` | `Time` \| null | Clock of the song. |
 | `user` | `User` \| null | Logged-in user. |
+| `spectators` | `Spectator[]` | The users watching the logged-in player's play (100 at most). Empty when nobody watches. |
+| `spectatorCount` | int | Number of spectators (not capped). |
 | `gameplay` | `Gameplay` \| null | Play in progress. |
+| `personalBest` | `PersonalBest` \| null | The best score on the selected beatmap seen by the application (without the `samples` and `maxPp`). `null` before the first one. Not a topic of the [WebSocket](WEBSOCKET.md#connection). |
 
 **`Screen`**: `unknown` · `menu` · `songSelect` · `playing` · `results` · `editor` · `multiplayer` · `other`
 
@@ -80,6 +84,22 @@ Calculated by [rosu-pp](https://github.com/MaxOhn/rosu-pp) from the `.osu` file,
 | `stars` | number | Stars with the mods. |
 | `maxCombo` | int | Maximum combo. |
 | `pp95`, `pp98`, `pp99`, `pp100` | number | PP for an accuracy of 95 / 98 / 99 / 100 %. |
+| `firstObjectMs` | number | Song time (ms) of the first hit object: the "0:00" of a timer that ignores the intro. |
+| `lastObjectMs` | number | Song time (ms) of the last hit object: the end of that timer (the outro is not counted). |
+
+## `DifficultyGraph`
+
+How hard each part of the beatmap is, **relative to the rest of the same map**: it is what a graph is drawn from (low bars =
+calm sections, high bars = dense ones). Computed once per beatmap, mods and speed (off the reading thread), from the objects
+of the `.osu` file: an "effort" that rises with tapping speed and the distance between objects, and falls during breaks. The
+mods that change the speed (DT, HT, a set speed) or the circle size (HR, EZ, Difficulty Adjust) are taken into account.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `durationMs` | number | Song time covered by `buckets`, in milliseconds: bucket `i` starts at `i × durationMs / buckets.length`. |
+| `overall` | number | The **overall difficulty**: the stars with the mods (the same value as `difficulty.stars`). |
+| `peakMs` | number | Song time, in milliseconds, of the hardest section. |
+| `buckets` | number[] | 120 values from `0` (the calmest section) to `1` (the hardest of **this** map), rounded to 3 decimals. Two maps cannot be compared bucket by bucket: use `overall` for that. |
 
 ## `Time`
 
@@ -108,6 +128,17 @@ For a progress bar: `currentMs / beatmap.lengthMs` (clamped to `0..1`).
 > These fields identify the user. The API is only reachable from this machine, but avoid displaying them on screen if you share your
 > stream by accident.
 
+## `Spectator`
+
+An item of `spectators`: a user watching the logged-in player's play (read from osu!lazer's spectator client;
+the list is empty when offline or when nobody watches).
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | int | osu! id. |
+| `username` | string | User name. |
+| `avatarUrl` | string (optional) | `https://a.ppy.sh/{id}`; absent without a valid account. Loading this address needs Internet access. |
+
 ## `Gameplay`
 
 | Field | Type | Description |
@@ -133,6 +164,21 @@ For a progress bar: `currentMs / beatmap.lengthMs` (clamped to `0..1`).
 `results`: possible keys (only those with at least one occurrence are present): `None`, `Miss`, `Meh`, `Ok`, `Good`, `Great`, `Perfect`,
 `SmallTickMiss`, `SmallTickHit`, `LargeTickMiss`, `LargeTickHit`, `SmallBonus`, `LargeBonus`, `IgnoreMiss`, `IgnoreHit`, `ComboBreak`,
 `SliderTailHit`, `LegacyComboIncrease` (and `Result<n>` for an unknown value).
+
+## `PersonalBest`
+
+The best **completed solo** score on the selected beatmap, as the application has seen it (plays made before it ran are unknown; a replay, a failed or a quit play never counts; a strictly higher score is needed to replace it). In `GameState` it has neither `samples` nor `maxPp`; [`GET /personal-best`](REST_API.md#get-personal-best) adds them.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `score` | int | Final score (with the mod multiplier). |
+| `pp` | number | PP at the end of the play (`0` if they could not be calculated). |
+| `accuracy` | number | `0.0`–`1.0`. |
+| `maxCombo` | int | Best combo of the play. |
+| `mods` | string[] | Acronyms of the mods of the play. |
+| `playedAt` | int | End of the play, in milliseconds since the Unix epoch. |
+| `samples` | number[][] | Only on `GET /personal-best`: `[songTimeMs, score, pp, accuracy]`, about one per second of song, in time order. |
+| `maxPp` | number | Only on `GET /personal-best`: the highest PP of a completed solo play of the beatmap seen by the application, even if its score is lower than the record's (at least `pp`). |
 
 ## PP and stars
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useReaderStore } from "../lib/store";
+import { useReaderStore } from "../lib/state/store";
 import { optionValues, webWidgetUrl } from "../widgets/web";
-import type { WidgetInstance } from "./layout";
+import type { WidgetInstance } from "./model/layout";
 
 /**
  * A community widget: a page from the widgets folder shown in an isolated iframe.
@@ -15,16 +15,19 @@ export function WebWidget({ instance }: { instance: WidgetInstance }) {
   const apiPort = useReaderStore((s) => s.settings?.apiPort);
   const apiEnabled = useReaderStore((s) => s.settings?.apiEnabled ?? true);
   const frame = useRef<HTMLIFrameElement>(null);
+  // Hot reload: the widget's folder changed on disk, so its page is loaded again.
+  const reloads = useReaderStore((s) => s.widgetReload[instance.widget ?? ""] ?? 0);
 
   const options = useMemo(() => optionValues(manifest, instance.options), [manifest, instance.options]);
 
   // The URL (hence the page) is fixed once loaded; later option edits are posted to it instead,
   // so changing a colour in the editor does not reload the widget.
   const optionsAtLoad = useRef(options);
-  const src = useMemo(
-    () => (manifest && apiPort ? webWidgetUrl(apiPort, manifest, optionsAtLoad.current) : null),
-    [manifest, apiPort],
-  );
+  useEffect(() => {
+    optionsAtLoad.current = options;
+  }, [options]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- a reload (or a new manifest) rebuilds the URL with the options at that moment
+  const src = useMemo(() => (manifest && apiPort ? webWidgetUrl(apiPort, manifest, optionsAtLoad.current) : null), [manifest, apiPort, reloads]);
 
   useEffect(() => {
     frame.current?.contentWindow?.postMessage({ type: "yar:options", options }, "*");
@@ -39,6 +42,7 @@ export function WebWidget({ instance }: { instance: WidgetInstance }) {
   }
   return (
     <iframe
+      key={reloads}
       ref={frame}
       title={manifest.name}
       src={src}

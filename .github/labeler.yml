@@ -7,7 +7,7 @@
 
 "area: api":
   - changed-files:
-      - any-glob-to-any-file: ["crates/overlay-server/**", "docs/API.md", "docs/REST_API.md", "docs/WEBSOCKET.md", "docs/DATA_MODEL.md", "src/lib/types.ts"]
+      - any-glob-to-any-file: ["crates/overlay-server/**", "docs/API.md", "docs/REST_API.md", "docs/WEBSOCKET.md", "docs/DATA_MODEL.md", "src/lib/state/types.ts"]
 
 "area: overlay":
   - changed-files:
@@ -23,7 +23,7 @@
 
 "area: ui":
   - changed-files:
-      - any-glob-to-any-file: ["src/components/**", "src/App.tsx", "src/index.css", "src/lib/store.ts"]
+      - any-glob-to-any-file: ["src/components/**", "src/App.tsx", "src/index.css", "src/lib/state/store.ts"]
 
 "area: docs":
   - changed-files:
@@ -35,7 +35,7 @@
 
 "area: updater":
   - changed-files:
-      - any-glob-to-any-file: ["src-tauri/src/updater.rs", "src-tauri/tauri.conf.json", "src/lib/updates.ts", "src/components/Update*.tsx", ".github/workflows/release.yml", "scripts/version.mjs", "scripts/build-signed.mjs"]
+      - any-glob-to-any-file: ["src-tauri/src/updater.rs", "src-tauri/tauri.conf.json", "src/lib/system/updates.ts", "src/components/updates/Update*.tsx", ".github/workflows/release.yml", "scripts/version.mjs", "scripts/build-signed.mjs"]
 
 "area: ci":
   - changed-files:

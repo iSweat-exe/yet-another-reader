@@ -2,10 +2,10 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect } from "react";
 import { setTickerFps } from "./ticker";
-import { isTauri, mockInput, mockState, startMock } from "../lib/mock";
-import { connectReaderStore, setGame, setInput, useReaderStore } from "../lib/store";
-import type { GameState } from "../lib/types";
-import { useInputWindow } from "../lib/useInputWindow";
+import { isTauri, mockInput, mockState, startMock } from "../lib/state/mock";
+import { connectReaderStore, setGame, setInput, useReaderStore } from "../lib/state/store";
+import type { GameState } from "../lib/state/types";
+import { useInputWindow } from "../lib/state/useInputWindow";
 import { INPUT_WIDGET_TYPES } from "../widgets/registry";
 import { OverlayCanvas } from "./OverlayCanvas";
 import { useLayout } from "./useLayout";
@@ -24,7 +24,7 @@ export default function OverlayApp() {
   useEffect(() => {
     document.documentElement.classList.add("overlay");
     if (!isTauri) return startMock();
-    const ready = connectReaderStore();
+    const ready = connectReaderStore({ lite: true });
     return () => void ready.then((unlisten) => unlisten());
   }, []);
 

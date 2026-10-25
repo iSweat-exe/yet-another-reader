@@ -7,7 +7,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use lazer_reader::events::{self, Event};
 use lazer_reader::input::InputState;
-use lazer_reader::model::{GameState, ReaderStatus};
+use lazer_reader::model::{GameState, PersonalBestGhost, ReaderStatus};
 use serde::Serialize;
 use serde_json::Value;
 use tokio::sync::broadcast;
@@ -112,6 +112,8 @@ struct Inner {
     input_window_count: AtomicUsize,
     /// Until when (ms since start) a REST request keeps the inputs being read.
     input_rest_until: AtomicU64,
+    /// The personal best of the current beatmap, with its samples (served at `/personal-best`).
+    ghost: RwLock<Option<Arc<PersonalBestGhost>>>,
 }
 
 /// Cheap to clone; all clones share the same state.
@@ -185,6 +187,7 @@ impl Hub {
             input_windows: Mutex::new(HashSet::new()),
             input_window_count: AtomicUsize::new(0),
             input_rest_until: AtomicU64::new(0),
+            ghost: RwLock::new(None),
         }))
     }
 
@@ -266,6 +269,15 @@ impl Hub {
     }
 
     #[must_use]
+    pub fn ghost(&self) -> Option<Arc<PersonalBestGhost>> {
+        read(&self.0.ghost).clone()
+    }
+
+    pub fn set_ghost(&self, ghost: Option<Arc<PersonalBestGhost>>) {
+        *write(&self.0.ghost) = ghost;
+    }
+
+    #[must_use]
     pub fn status(&self) -> ReaderStatus {
         read(&self.0.data).status.clone()
     }
@@ -281,19 +293,19 @@ impl Hub {
 
     /// Publishes the held inputs; returns `false` (and sends nothing) when they did not change.
     #[must_use = "false means nothing changed, so there is nothing to forward"]
-    pub fn publish_inputs(&self, state: InputState) -> bool {
+    pub fn publish_inputs(&self, state: &InputState) -> bool {
         let update = {
             let mut d = write(&self.0.input);
-            if d.state == state {
+            if d.state == *state {
                 return false;
             }
             d.seq += 1;
             d.at = now_ms();
-            d.state = state.clone();
+            d.state.clone_from(state);
             InputUpdate {
                 seq: d.seq,
                 at: d.at,
-                state: Arc::new(state),
+                state: Arc::new(state.clone()),
             }
         };
         let _ = self.0.input_tx.send(update);
@@ -474,9 +486,9 @@ mod tests {
         let hub = hub();
         let mut rx = hub.subscribe_inputs();
         let held = InputState::from_codes(vec![108], vec![]);
-        assert!(hub.publish_inputs(held.clone()));
-        assert!(!hub.publish_inputs(held));
-        assert!(hub.publish_inputs(InputState::default()));
+        assert!(hub.publish_inputs(&held));
+        assert!(!hub.publish_inputs(&held));
+        assert!(hub.publish_inputs(&InputState::default()));
         assert_eq!(rx.try_recv().map(|u| u.seq), Ok(1));
         assert_eq!(rx.try_recv().map(|u| u.seq), Ok(2));
         assert!(rx.try_recv().is_err());

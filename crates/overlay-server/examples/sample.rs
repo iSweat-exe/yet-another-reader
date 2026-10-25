@@ -16,8 +16,9 @@ use std::time::Duration;
 
 use lazer_reader::input::InputState;
 use lazer_reader::model::{
-    Assets, Beatmap, Difficulty, GameState, Gameplay, Hits, Paths, PlayingState, Pp, ReaderStatus,
-    Screen, Time, TimeSource, User, UserStatistics,
+    Assets, Beatmap, Difficulty, DifficultyGraph, GameState, Gameplay, Hits, Paths, PersonalBest,
+    PersonalBestGhost, PlayingState, Pp, ReaderStatus, Screen, Spectator, Time, TimeSource, User,
+    UserStatistics,
 };
 use overlay_server::{ApiSettings, Hub};
 
@@ -98,6 +99,44 @@ fn user() -> User {
     }
 }
 
+/// A made-up strain curve: calm intro, a stream section, a break, a harder finish.
+fn spectators() -> Vec<Spectator> {
+    [(1001, "Alice"), (1002, "Bob"), (1003, "Charlie")]
+        .into_iter()
+        .map(|(id, name)| Spectator {
+            id,
+            username: name.to_string(),
+            avatar_url: Some(format!("https://a.ppy.sh/{id}")),
+        })
+        .collect()
+}
+
+fn graph() -> DifficultyGraph {
+    let buckets: Vec<f32> = (0..120)
+        .map(|i| {
+            let t = f64::from(i) / 120.0;
+            let v = match t {
+                t if t < 0.15 => 0.15 + t,
+                t if t < 0.45 => 0.55 + 0.25 * (t * 40.0).sin().abs(),
+                t if t < 0.55 => 0.12,
+                t => 0.6 + 0.4 * ((t - 0.55) / 0.45) * (0.7 + 0.3 * (t * 60.0).sin().abs()),
+            };
+            (v.clamp(0.0, 1.0) * 1000.0).round() as f32 / 1000.0
+        })
+        .collect();
+    let peak = buckets
+        .iter()
+        .enumerate()
+        .fold((0, 0.0_f32), |b, (i, &v)| if v > b.1 { (i, v) } else { b })
+        .0;
+    DifficultyGraph {
+        duration_ms: 180_000.0,
+        overall: 7.4,
+        peak_ms: (peak as f64 + 0.5) * 1_500.0,
+        buckets,
+    }
+}
+
 fn base(screen: Screen, screen_type: &str) -> GameState {
     GameState {
         connected: true,
@@ -117,19 +156,52 @@ fn base(screen: Screen, screen_type: &str) -> GameState {
             pp98: 290.0,
             pp99: 310.0,
             pp100: 340.0,
+            first_object_ms: 3_200.0,
+            last_object_ms: 176_400.0,
         }),
+        difficulty_graph: Some(graph()),
         time: Some(Time {
             current_ms: 19_649.0,
             running: true,
             source: TimeSource::Global,
         }),
         user: Some(user()),
+        spectators: spectators(),
+        spectator_count: 3,
         gameplay: None,
+        personal_best: Some(record().best),
+    }
+}
+
+/// A made-up personal best: a steady 66 000 points over the 36 seconds of the scripted play.
+fn record() -> PersonalBestGhost {
+    PersonalBestGhost {
+        best: PersonalBest {
+            score: 66_000,
+            pp: 148.2,
+            accuracy: 0.9812,
+            max_combo: 301,
+            mods: vec!["HD".into(), "DT".into()],
+            played_at: 1_760_000_000_000,
+        },
+        samples: (0..=9)
+            .map(|i| {
+                let k = f64::from(i);
+                [
+                    k * 4_000.0,
+                    66_000.0 * k / 9.0,
+                    100.0 + 48.2 * k / 9.0,
+                    0.985 - 0.004 * k / 9.0,
+                ]
+            })
+            .collect(),
+        max_pp: 152.7,
     }
 }
 
 fn playing(step: i32, paused: bool) -> GameState {
-    let combo = step * 7;
+    // The combo breaks on the step of the first miss.
+    let combo = if step >= 7 { (step - 6) * 7 } else { step * 7 };
     let great = step * 7;
     let mut state = base(Screen::Playing, "osu.Game.Screens.Play.SoloPlayer");
     state.playing = PlayingState::Playing;
@@ -170,7 +242,14 @@ fn playing(step: i32, paused: bool) -> GameState {
             ss: 255.4,
         }),
         unstable_rate: Some(144.6),
-        hit_errors: vec![-3.78, -3.32, -1.24, 4.5, 8.1],
+        hit_errors: vec![
+            -3.78,
+            -3.32,
+            -1.24,
+            4.5,
+            8.1,
+            f32::from(i16::try_from(step).unwrap_or(0)) * 1.5 - 6.0,
+        ],
     });
     state
 }
@@ -211,6 +290,15 @@ fn write(root: &Path, sha: &str, bytes: &[u8]) {
     let _ = std::fs::write(dir.join(sha), bytes);
 }
 
+/// A valid 1x1 PNG, imported as the sample picture of the `images` route.
+const SAMPLE_PNG: &[u8] = &[
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
+    0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0xDA, 0x63, 0xF8, 0xCF, 0xC0, 0xF0,
+    0x1F, 0x00, 0x05, 0x00, 0x01, 0xFF, 0x89, 0x99, 0x3D, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45,
+    0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+];
+
 /// A storage with a one-pixel picture and a few bytes of "audio", and one community widget.
 fn fake_storage() -> (PathBuf, PathBuf) {
     let root = std::env::temp_dir().join("yar-sample");
@@ -246,8 +334,21 @@ async fn main() -> std::io::Result<()> {
         input_poll_interval_ms: 2,
         port,
     });
+    hub.set_ghost(Some(std::sync::Arc::new(record())));
     let (storage, widgets) = fake_storage();
-    let server = overlay_server::start(hub.clone(), port, Some(storage), Some(widgets)).await?;
+    // One imported picture (a 1x1 PNG), served at /api/v1/images/{id}.
+    let images = storage.join("images");
+    let picture = overlay_server::images::import(&images, SAMPLE_PNG)
+        .map_err(|e| std::io::Error::other(e.to_string()))?;
+    println!("sample picture: /api/v1/images/{}", picture.id);
+    let server = overlay_server::start_with_images(
+        hub.clone(),
+        port,
+        Some(storage),
+        Some(widgets),
+        Some(images),
+    )
+    .await?;
     println!(
         "sample API on http://{}/api/v1 (Ctrl+C to stop)",
         server.addr
@@ -260,8 +361,10 @@ async fn main() -> std::io::Result<()> {
     }
     hub.publish_status(ReaderStatus::Connected {
         version: "2026.1005.0-lazer+9a10d935".into(),
+        stream: "lazer".into(),
         profile: "embedded default".into(),
         connect_ms: 5_200,
+        gc_mode: Some(lazer_reader::model::GcMode::Interactive),
     });
     let mut n = 0;
     loop {
@@ -270,15 +373,17 @@ async fn main() -> std::io::Result<()> {
             14 => hub.publish_status(ReaderStatus::Connecting),
             15 => hub.publish_status(ReaderStatus::Connected {
                 version: "2026.1005.0-lazer+9a10d935".into(),
+                stream: "lazer".into(),
                 profile: "embedded default".into(),
                 connect_ms: 5_200,
+                gc_mode: Some(lazer_reader::model::GcMode::Interactive),
             }),
             _ => {}
         }
         hub.publish_state(frame(n));
         // Four input changes per second of story, as a fast player would make.
         for tick in 0..4 {
-            let _ = hub.publish_inputs(held(n, tick));
+            let _ = hub.publish_inputs(&held(n, tick));
             tokio::time::sleep(Duration::from_millis(250)).await;
         }
         n += 1;

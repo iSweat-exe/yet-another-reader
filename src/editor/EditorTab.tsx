@@ -1,18 +1,19 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import { Icon } from "../components/Icon";
+import { Icon } from "../components/icons/Icon";
 import { useT } from "../i18n";
-import { isTauri, startGameMock } from "../lib/mock";
-import { useInputWindow } from "../lib/useInputWindow";
-import { useReaderStore } from "../lib/store";
-import type { GameState } from "../lib/types";
-import { EditorCanvas } from "./EditorCanvas";
-import { Inspector } from "./Inspector";
-import { PageTabs } from "./PageTabs";
-import { Layers, Palette } from "./Palette";
-import { Splitter, useStoredSize } from "./Splitter";
-import { Toolbar } from "./Toolbar";
-import { useErrorText } from "./dialogs";
+import { isTauri, startGameMock } from "../lib/state/mock";
+import { useInputWindow } from "../lib/state/useInputWindow";
+import { useReaderStore } from "../lib/state/store";
+import type { GameState } from "../lib/state/types";
+import { EditorCanvas } from "./canvas/EditorCanvas";
+import { Inspector } from "./panels/Inspector";
+import { PageTabs } from "./panels/PageTabs";
+import { Layers, Palette } from "./panels/Palette";
+import { Splitter, useStoredSize } from "./panels/Splitter";
+import { CommandPalette } from "./panels/CommandPalette";
+import { Toolbar } from "./panels/Toolbar";
+import { useErrorText } from "./panels/dialogs";
 import { isDirty, useEditor } from "./useEditor";
 
 const AUTOSAVE_DELAY_MS = 500;
@@ -33,7 +34,7 @@ function useEditorData() {
 }
 
 function Kbd({ children }: { children: string }) {
-  return <kbd className="rounded bg-white/8 px-1.5 py-px font-sans text-[0.6875rem] text-ink shadow-[0_1px_0_oklch(1_0_0/0.12)]">{children}</kbd>;
+  return <kbd className="rounded bg-wash/8 px-1.5 py-px font-sans text-[0.6875rem] text-ink shadow-[0_1px_0_oklch(from_var(--wash)_l_c_h/0.12)]">{children}</kbd>;
 }
 
 /** Keyboard shortcuts of the canvas, as key caps followed by what they do. */
@@ -66,8 +67,8 @@ function ShortcutsBar() {
     }
   };
   return (
-    <div className="border-t border-white/5 bg-surface-raised px-3 text-xs text-ink-dim">
-      <button type="button" aria-expanded={open} onClick={toggle} className="-ml-2 flex min-h-8 items-center gap-1.5 rounded-md px-2 outline-none transition-[color,background-color] duration-150 hover:bg-white/6 hover:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)]">
+    <div className="border-t border-wash/5 bg-surface-raised px-3 text-xs text-ink-dim">
+      <button type="button" aria-expanded={open} onClick={toggle} className="-ml-2 flex min-h-8 items-center gap-1.5 rounded-md px-2 outline-none transition-[color,background-color] duration-150 hover:bg-wash/6 hover:text-ink focus-visible:shadow-[0_0_0_2px_var(--color-accent)]">
         <Icon name="chevron-up" size={14} className={`transition-transform duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
         {t("editor.shortcuts")}
       </button>
@@ -100,8 +101,14 @@ function isTyping(target: EventTarget | null): boolean {
 function useShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTyping(e.target) || document.querySelector("[role=dialog]")) return;
       const ed = useEditor.getState();
+      // Ctrl+K opens (or closes) the command palette from anywhere in the editor, even from a field.
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k" && !e.shiftKey && !document.querySelector("[role=dialog]:not([data-command-palette])")) {
+        e.preventDefault();
+        ed.setCommandOpen(!ed.commandOpen);
+        return;
+      }
+      if (isTyping(e.target) || document.querySelector("[role=dialog]")) return;
       const mod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
       const step = e.shiftKey ? 10 : 1;
@@ -109,12 +116,15 @@ function useShortcuts() {
       const handled = (() => {
         if (mod && key === "z") return e.shiftKey ? ed.redo() : ed.undo(), true;
         if (mod && key === "y") return ed.redo(), true;
+        // Ctrl+Alt+C / V copy and paste the style (Ctrl+C / V copy the widgets): the Alt ones come first.
+        if (mod && e.altKey && key === "c") return ed.copyStyle(), true;
+        if (mod && e.altKey && key === "v") return ed.pasteStyle(), true;
         if (mod && key === "c") return ed.copySelected(), true;
         if (mod && key === "v") return ed.paste(), true;
         if (mod && key === "d") return ed.duplicateSelected(), true;
         if (mod && key === "g") return e.shiftKey ? ed.ungroupSelected() : ed.groupSelected(), true;
         if (mod && key === "s") return void ed.save(), true;
-        if (mod && key === "a") return ed.select(ed.doc.widgets.map((w) => w.id)), true;
+        if (mod && key === "a") return ed.select(ed.doc.widgets.filter((w) => !w.locked).map((w) => w.id)), true;
         if (key === "delete" || key === "backspace") return ed.removeSelected(), true;
         if (key === "escape") return ed.select([]), true;
         if (key === "arrowleft") return ed.nudge(-step, 0), true;
@@ -168,6 +178,7 @@ export default function EditorTab() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <Toolbar />
+      <CommandPalette />
       <div className="flex min-h-0 flex-1">
         <aside style={{ width: left }} className="min-h-0 shrink-0 overflow-y-auto bg-surface-raised">
           <Palette />
@@ -193,7 +204,7 @@ export default function EditorTab() {
       {error && (
         <div role="alert" className="toast absolute right-4 bottom-12 z-40 flex max-w-sm items-start gap-3 rounded-lg bg-red-700 px-3 py-2 text-sm text-white shadow-lg">
           <span className="min-w-0 flex-1">{errorText(error)}</span>
-          <button type="button" aria-label={t("common.close")} onClick={() => useEditor.getState().setError(null)} className="flex size-8 shrink-0 items-center justify-center rounded-md outline-none transition-[background-color,scale] duration-150 hover:bg-white/15 focus-visible:shadow-[0_0_0_2px_white] active:scale-[0.96]">
+          <button type="button" aria-label={t("common.close")} onClick={() => useEditor.getState().setError(null)} className="flex size-8 shrink-0 items-center justify-center rounded-md outline-none transition-[background-color,scale] duration-150 hover:bg-wash/15 focus-visible:shadow-[0_0_0_2px_white] active:scale-[0.96]">
             <Icon name="close" />
           </button>
         </div>

@@ -22,9 +22,15 @@ pub struct Profile {
     /// Player -> the mods it plays with (a replay has its own, not the song select's).
     pub player_mods: &'static [&'static str],
     pub playing_state: &'static [&'static str],
+    /// Root -> `HighPerformanceSessionManager`: its `originalGCMode` is the GC latency mode the game
+    /// had before its last high-performance session (a play), i.e. its normal one.
+    pub performance_manager: &'static [&'static str],
     /// Root -> `APIAccess`, then -> the signed-in `APIUser`.
     pub api: &'static [&'static str],
     pub local_user: &'static [&'static str],
+    /// Root -> `SpectatorClient` -> `watchingUsers` (a `BindableList<SpectatorUser>`) -> its `List`:
+    /// the users watching the signed-in user. Items have `OnlineID` and `Username`.
+    pub spectators: &'static [&'static str],
     /// Root -> global `FramedBeatmapClock`.
     pub beatmap_clock: &'static [&'static str],
     /// Player -> `GameplayClockContainer` -> `FramedBeatmapClock`.
@@ -41,6 +47,11 @@ pub struct Profile {
     /// Player -> the ruleset's `HasReplayLoaded` bindable: true while a replay (or autoplay,
     /// or a spectated player) drives the inputs.
     pub has_replay: &'static [&'static str],
+    /// Player -> the actions of the last `ReplayState` the ruleset's input manager applied. Whatever
+    /// presses for the player (a replay, Autoplay, Cinema, Relax) goes through it, and the player's own
+    /// keys never do: it is what the game itself is pressing. The object changes with every press, so
+    /// the path is followed on each read.
+    pub replay_actions: &'static [&'static str],
 
     pub player_type: &'static str,
     pub score_processor: &'static str,
@@ -64,8 +75,14 @@ impl Profile {
         selected_mods: &["SelectedMods", "value"],
         player_mods: &["<Mods>k__BackingField", "value"],
         playing_state: &["UserPlayingState"],
+        performance_manager: &["highPerformanceSessionManager"],
         api: &["<API>k__BackingField"],
         local_user: &["localUserState", "localUser", "value"],
+        spectators: &[
+            "<SpectatorClient>k__BackingField",
+            "watchingUsers",
+            "collection",
+        ],
         beatmap_clock: &["beatmapClock"],
         gameplay_clock: &["<GameplayClockContainer>k__BackingField", "GameplayClock"],
         input_keys: &[
@@ -90,6 +107,13 @@ impl Profile {
             "KeyBindingContainer",
         ],
         has_replay: &["<DrawableRuleset>k__BackingField", "HasReplayLoaded"],
+        replay_actions: &[
+            "<DrawableRuleset>k__BackingField",
+            "<KeyBindingInputManager>k__BackingField",
+            "CurrentState",
+            "LastReplayState",
+            "PressedActions",
+        ],
         player_type: "osu.Game.Screens.Play.Player",
         score_processor: "<ScoreProcessor>k__BackingField",
         health_processor: "<HealthProcessor>k__BackingField",

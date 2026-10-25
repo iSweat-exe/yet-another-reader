@@ -7,6 +7,7 @@
 
 pub mod error;
 pub mod events;
+pub mod graph;
 pub mod input;
 pub mod metadata;
 pub mod model;
@@ -14,18 +15,13 @@ pub mod pp;
 pub mod profile;
 pub mod version;
 
-#[cfg(windows)]
+mod platform;
+
+pub use platform::{dac, paths, process, window};
+
 pub mod clr;
-#[cfg(windows)]
-pub mod dac;
-#[cfg(windows)]
-pub mod process;
-#[cfg(windows)]
 pub mod readers;
-#[cfg(windows)]
 pub mod session;
-#[cfg(windows)]
-pub mod window;
 
 pub use error::{ReaderError, Result};
 pub use version::LazerVersion;
