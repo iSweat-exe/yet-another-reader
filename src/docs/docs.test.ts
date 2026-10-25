@@ -199,7 +199,7 @@ describe.each([
   { lang: "en", text: (p: DocPage) => p.sourceEn, usage: "**Usage example**", response: "**Response example**", wsUsage: "### Usage example" },
 ])("API documentation ($lang)", ({ text, usage, response, wsUsage }) => {
   const api = ["api", "rest-api", "websocket", "data-model"].map((id) => DOC_PAGES.find((p) => p.id === id)).filter((p): p is DocPage => p !== undefined);
-  const blocks = (source: string, lang: string) => [...source.matchAll(new RegExp("```" + lang + "\n([\s\S]*?)```", "g"))].map((m) => m[1]);
+  const blocks = (source: string, lang: string) => [...source.matchAll(new RegExp("```" + lang + "\n([\\s\\S]*?)```", "g"))].map((m) => m[1]);
 
   it("has the four pages", () => {
     expect(api.map((p) => p.id)).toEqual(["api", "rest-api", "websocket", "data-model"]);

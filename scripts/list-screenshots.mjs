@@ -13,7 +13,7 @@ const todoOnly = process.argv.includes("--todo");
 
 const files = readdirSync(DOCS).filter((f) => f.endsWith(".md")).sort();
 const images = existsSync(join(DOCS, "images")) ? readdirSync(join(DOCS, "images")) : [];
-const has = (id, lang) => images.some((f) => new RegExp(`^${id}(\.${lang})?\.(png|webp|jpe?g)$`).test(f));
+const has = (id, lang) => images.some((f) => new RegExp(`^${id}(\\.${lang})?\\.(png|webp|jpe?g)$`).test(f));
 
 const shots = [];
 for (const file of files) {
