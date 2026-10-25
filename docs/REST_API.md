@@ -159,8 +159,10 @@ if (status.phase !== "connected") console.log("osu!lazer pas prêt :", status.ph
 {
   "phase": "connected",
   "version": "2026.1005.0-lazer+9a10d935",
+  "stream": "lazer",
   "profile": "embedded default",
-  "connectMs": 5200
+  "connectMs": 5200,
+  "gcMode": "interactive"
 }
 ```
 
@@ -168,8 +170,10 @@ if (status.phase !== "connected") console.log("osu!lazer pas prêt :", status.ph
 | --- | --- | --- |
 | `waiting` | osu!lazer n'est pas lancé | aucun |
 | `connecting` | Jeu détecté, repérage des objets du jeu (quelques secondes) | aucun |
-| `connected` | Lecture en cours | `version`, `profile`, `connectMs` (durée de la connexion) |
+| `connected` | Lecture en cours | `version`, `stream` (`lazer`, `tachyon`...), `profile`, `connectMs` (durée de la connexion), `gcMode` |
 | `error` | Jeu lancé mais illisible | `message` |
+
+`gcMode` est le mode de latence du ramasse-miettes .NET du jeu en dehors d'une partie : `interactive` (normal), `lowLatency`, `sustainedLowLatency` ou `noGcRegion`. Il vaut `null` tant que le jeu ne l'a pas montré : osu!lazer ne l'enregistre qu'au début de la première partie.
 
 Quand le jeu n'est pas lancé :
 
@@ -241,8 +245,10 @@ const { seq, status, state } = await (await fetch(`${API}/snapshot`)).json();
   "status": {
     "phase": "connected",
     "version": "2026.1005.0-lazer+9a10d935",
+    "stream": "lazer",
     "profile": "embedded default",
-    "connectMs": 5200
+    "connectMs": 5200,
+    "gcMode": "interactive"
   },
   "state": {
     "connected": true,
@@ -275,6 +281,7 @@ if (state.gameplay) console.log(state.gameplay.score, state.gameplay.combo);
 {
   "connected": true,
   "version": "2026.1005.0-lazer+9a10d935",
+  "stream": "lazer",
   "screen": "playing",
   "screenType": "osu.Game.Screens.Play.SoloPlayer",
   "playing": "playing",

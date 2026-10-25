@@ -57,6 +57,11 @@ export const ru: Messages = {
   "status.error": "Не удаётся прочитать игру",
   "status.version": "Версия",
   "status.profile": "Профиль",
+  "status.stream": "Stream",
+  "status.gc": "Interactive GC",
+  "status.gcOn": "Включён",
+  "status.gcOff": "Выключен ({mode})",
+  "status.gcUnknown": "Станет известно после игры",
   "status.connectTime": "Подключение",
   "status.seconds": "{n} с",
 

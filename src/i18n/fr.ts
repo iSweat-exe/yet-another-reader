@@ -57,6 +57,11 @@ export const fr: Messages = {
   "status.error": "Lecture impossible",
   "status.version": "Version",
   "status.profile": "Profil",
+  "status.stream": "Stream",
+  "status.gc": "Interactive GC",
+  "status.gcOn": "Activé",
+  "status.gcOff": "Désactivé ({mode})",
+  "status.gcUnknown": "Connu après une partie",
   "status.connectTime": "Connexion",
   "status.seconds": "{n} s",
 

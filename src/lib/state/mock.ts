@@ -193,7 +193,7 @@ export function startMock(): () => void {
     setInput(mockInput(t));
   };
   useReaderStore.setState({
-    status: { phase: "connected", version: "2026.1005.0-lazer+9a10d935", profile: "mock", connectMs: 0 },
+    status: { phase: "connected", version: "2026.1005.0-lazer+9a10d935", stream: "lazer", profile: "mock", connectMs: 0, gcMode: "interactive" },
     settings: { pollIntervalMs: 33, inputPollIntervalMs: 2, apiEnabled: true, apiPort: MOCK_API_PORT, overlayEnabled: true, overlayOnlyWhenFocused: true, overlayFps: 30, activeLayout: "default", language: "auto", rtssEnabled: false, rtssX: 40, rtssY: 40, autoUpdateCheck: true, nowPlayingEnabled: false, nowPlayingDir: "", nowPlayingTemplate: "{artist} - {title} [{version}]" },
     api: { enabled: true, running: true, port: MOCK_API_PORT, url: `http://127.0.0.1:${MOCK_API_PORT}`, error: null },
     update: { phase: "available", version: "1.1.0", current: "0.1.0", notes: "- Faster game detection\n- A trail effect for the key overlay\n- Automatic updates", date: null },

@@ -57,6 +57,11 @@ export const ko: Messages = {
   "status.error": "게임을 읽을 수 없습니다",
   "status.version": "버전",
   "status.profile": "프로필",
+  "status.stream": "Stream",
+  "status.gc": "Interactive GC",
+  "status.gcOn": "켜짐",
+  "status.gcOff": "꺼짐 ({mode})",
+  "status.gcUnknown": "플레이 후 확인됨",
   "status.connectTime": "연결 시간",
   "status.seconds": "{n}초",
 

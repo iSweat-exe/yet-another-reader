@@ -126,8 +126,10 @@ Envoyé **une fois**, dès la connexion : l'état courant, pour que tu n'aies ri
   },
   "status": {
     "connectMs": 5200,
+    "gcMode": "interactive",
     "phase": "connected",
     "profile": "embedded default",
+    "stream": "lazer",
     "version": "2026.1005.0-lazer+9a10d935"
   },
   "type": "hello"

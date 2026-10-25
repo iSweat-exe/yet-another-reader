@@ -125,8 +125,10 @@ Sent **once**, as soon as you connect: the current state, so that you have nothi
   },
   "status": {
     "connectMs": 5200,
+    "gcMode": "interactive",
     "phase": "connected",
     "profile": "embedded default",
+    "stream": "lazer",
     "version": "2026.1005.0-lazer+9a10d935"
   },
   "type": "hello"

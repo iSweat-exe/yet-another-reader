@@ -21,11 +21,41 @@ pub enum ReaderStatus {
     Connecting,
     Connected {
         version: String,
+        /// Release stream of the build (`lazer`, `tachyon`, ...).
+        stream: String,
         profile: String,
         connect_ms: u64,
+        /// The .NET garbage collector's latency mode outside a play, once the game has shown it;
+        /// `interactive` is the normal mode (concurrent GC). `None` until then.
+        gc_mode: Option<GcMode>,
     },
     /// Running but unreadable (layout changed, DAC refused, ...).
     Error { message: String },
+}
+
+/// `System.Runtime.GCLatencyMode`: how eagerly the game's garbage collector works.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum GcMode {
+    Interactive,
+    LowLatency,
+    SustainedLowLatency,
+    NoGcRegion,
+}
+
+impl GcMode {
+    /// From the enum's value. `0` (`Batch`) is what a field the game has not written yet holds, and
+    /// the game never runs in that mode, so it reads as "not known".
+    #[must_use]
+    pub fn from_raw(raw: i32) -> Option<Self> {
+        match raw {
+            1 => Some(Self::Interactive),
+            2 => Some(Self::LowLatency),
+            3 => Some(Self::SustainedLowLatency),
+            4 => Some(Self::NoGcRegion),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Default)]

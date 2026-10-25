@@ -57,6 +57,11 @@ export const pt: Messages = {
   "status.error": "Não foi possível ler o jogo",
   "status.version": "Versão",
   "status.profile": "Perfil",
+  "status.stream": "Stream",
+  "status.gc": "Interactive GC",
+  "status.gcOn": "Ativado",
+  "status.gcOff": "Desativado ({mode})",
+  "status.gcUnknown": "Conhecido após uma partida",
   "status.connectTime": "Conexão",
   "status.seconds": "{n} s",
 

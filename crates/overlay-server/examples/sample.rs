@@ -361,8 +361,10 @@ async fn main() -> std::io::Result<()> {
     }
     hub.publish_status(ReaderStatus::Connected {
         version: "2026.1005.0-lazer+9a10d935".into(),
+        stream: "lazer".into(),
         profile: "embedded default".into(),
         connect_ms: 5_200,
+        gc_mode: Some(lazer_reader::model::GcMode::Interactive),
     });
     let mut n = 0;
     loop {
@@ -371,8 +373,10 @@ async fn main() -> std::io::Result<()> {
             14 => hub.publish_status(ReaderStatus::Connecting),
             15 => hub.publish_status(ReaderStatus::Connected {
                 version: "2026.1005.0-lazer+9a10d935".into(),
+                stream: "lazer".into(),
                 profile: "embedded default".into(),
                 connect_ms: 5_200,
+                gc_mode: Some(lazer_reader::model::GcMode::Interactive),
             }),
             _ => {}
         }

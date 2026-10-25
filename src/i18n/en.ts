@@ -56,6 +56,11 @@ export const en = {
   "status.error": "Cannot read the game",
   "status.version": "Version",
   "status.profile": "Profile",
+  "status.stream": "Stream",
+  "status.gc": "Interactive GC",
+  "status.gcOn": "On",
+  "status.gcOff": "Off ({mode})",
+  "status.gcUnknown": "Known after a play",
   "status.connectTime": "Connection",
   "status.seconds": "{n} s",
 

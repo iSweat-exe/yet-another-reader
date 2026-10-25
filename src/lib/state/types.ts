@@ -209,10 +209,13 @@ export interface GameState {
   personalBest: PersonalBest | null;
 }
 
+/** .NET garbage collector latency mode of the game outside a play; `interactive` is the normal one. */
+export type GcMode = "interactive" | "lowLatency" | "sustainedLowLatency" | "noGcRegion";
+
 export type ReaderStatus =
   | { phase: "waiting" }
   | { phase: "connecting" }
-  | { phase: "connected"; version: string; profile: string; connectMs: number }
+  | { phase: "connected"; version: string; stream: string; profile: string; connectMs: number; gcMode: GcMode | null }
   | { phase: "error"; message: string };
 
 export interface Settings {

@@ -22,6 +22,9 @@ pub struct Profile {
     /// Player -> the mods it plays with (a replay has its own, not the song select's).
     pub player_mods: &'static [&'static str],
     pub playing_state: &'static [&'static str],
+    /// Root -> `HighPerformanceSessionManager`: its `originalGCMode` is the GC latency mode the game
+    /// had before its last high-performance session (a play), i.e. its normal one.
+    pub performance_manager: &'static [&'static str],
     /// Root -> `APIAccess`, then -> the signed-in `APIUser`.
     pub api: &'static [&'static str],
     pub local_user: &'static [&'static str],
@@ -72,6 +75,7 @@ impl Profile {
         selected_mods: &["SelectedMods", "value"],
         player_mods: &["<Mods>k__BackingField", "value"],
         playing_state: &["UserPlayingState"],
+        performance_manager: &["highPerformanceSessionManager"],
         api: &["<API>k__BackingField"],
         local_user: &["localUserState", "localUser", "value"],
         spectators: &[

@@ -57,6 +57,11 @@ export const de: Messages = {
   "status.error": "Spiel nicht lesbar",
   "status.version": "Version",
   "status.profile": "Profil",
+  "status.stream": "Stream",
+  "status.gc": "Interactive GC",
+  "status.gcOn": "An",
+  "status.gcOff": "Aus ({mode})",
+  "status.gcUnknown": "Nach einem Spiel bekannt",
   "status.connectTime": "Verbindung",
   "status.seconds": "{n} s",
 

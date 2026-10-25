@@ -58,6 +58,11 @@ export const zh: Messages = {
   "status.error": "无法读取游戏",
   "status.version": "版本",
   "status.profile": "配置",
+  "status.stream": "Stream",
+  "status.gc": "Interactive GC",
+  "status.gcOn": "已启用",
+  "status.gcOff": "未启用 ({mode})",
+  "status.gcUnknown": "游玩后可知",
   "status.connectTime": "连接时间",
   "status.seconds": "{n} 秒",
 

@@ -57,6 +57,11 @@ export const ja: Messages = {
   "status.error": "ゲームを読み取れません",
   "status.version": "バージョン",
   "status.profile": "プロファイル",
+  "status.stream": "Stream",
+  "status.gc": "Interactive GC",
+  "status.gcOn": "有効",
+  "status.gcOff": "無効 ({mode})",
+  "status.gcUnknown": "プレイ後に判明",
   "status.connectTime": "接続時間",
   "status.seconds": "{n} 秒",
 

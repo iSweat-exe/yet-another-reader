@@ -91,11 +91,45 @@ fn connect(ctx: &ReaderContext) -> Result<LazerSession> {
         ctx,
         ReaderStatus::Connected {
             version: session.version().to_string(),
+            stream: session.version().stream().to_owned(),
             profile: session.profile().source.to_owned(),
             connect_ms: started.elapsed().as_millis() as u64,
+            gc_mode: session.gc_mode(),
         },
     );
     Ok(session)
+}
+
+/// How often the garbage collector's mode is looked at (it changes once per game session at most).
+const GC_INTERVAL: Duration = Duration::from_secs(2);
+
+/// Puts the game's current GC mode in the published status, which carries it since connecting.
+fn refresh_gc_mode(ctx: &ReaderContext, session: &LazerSession) {
+    let ReaderStatus::Connected {
+        version,
+        stream,
+        profile,
+        connect_ms,
+        gc_mode,
+    } = ctx.hub.status()
+    else {
+        return;
+    };
+    let now = session.gc_mode();
+    if now == gc_mode {
+        return;
+    }
+    ctx.diag
+        .info(&ctx.app, "reader", format!("GC latency mode: {now:?}"));
+    let status = ReaderStatus::Connected {
+        version,
+        stream,
+        profile,
+        connect_ms,
+        gc_mode: now,
+    };
+    let _ = ctx.app.emit(EVENT_READER_STATUS, &status);
+    ctx.hub.publish_status(status);
 }
 
 /// Polls until the game goes away or becomes unreadable; returns why.
@@ -111,6 +145,7 @@ fn poll(ctx: &ReaderContext, session: &mut LazerSession, meter: &mut Meter) -> R
     let mut inputs = InputLoop::default();
     let mut records = Records::new(ctx.records_dir.clone(), ctx.hub.clone());
     let mut in_play = false;
+    let mut next_gc = Instant::now() + GC_INTERVAL;
     let result = loop {
         if Instant::now() >= next_snapshot {
             let started = Instant::now();
@@ -157,6 +192,11 @@ fn poll(ctx: &ReaderContext, session: &mut LazerSession, meter: &mut Meter) -> R
         }
 
         ui.flush(&ctx.app, ctx.overlay_fps.load(Ordering::Relaxed));
+
+        if Instant::now() >= next_gc {
+            next_gc = Instant::now() + GC_INTERVAL;
+            refresh_gc_mode(ctx, session);
+        }
 
         let wanted = inputs.step(ctx, session, meter);
         meter.tick(ctx, wanted);

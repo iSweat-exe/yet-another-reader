@@ -14,8 +14,8 @@ use crate::error::{ReaderError, Result};
 use crate::graph::GraphWorker;
 use crate::input::{Binding, InputState};
 use crate::model::{
-    Beatmap, GameState, Gameplay, Hits, ModSettings, Paths, PlayingState, Screen, Spectator,
-    TimeSource, User,
+    Beatmap, GameState, Gameplay, GcMode, Hits, ModSettings, Paths, PlayingState, Screen,
+    Spectator, TimeSource, User,
 };
 use crate::pp::PpEngine;
 use crate::process::Process;
@@ -191,6 +191,16 @@ impl LazerSession {
     /// Address of the game's root object (`osu.Game.OsuGame`).
     pub fn root_address(&self) -> u64 {
         self.root
+    }
+
+    /// The garbage collector's latency mode outside a play, as recorded by the game when its last
+    /// play began. `None` while no play has happened yet, or if the game has no such manager.
+    pub fn gc_mode(&self) -> Option<GcMode> {
+        let manager = self
+            .clr
+            .follow(self.root, self.profile.performance_manager)
+            .ok()??;
+        GcMode::from_raw(self.clr.i32_field(manager, "originalGCMode").ok()?)
     }
 
     pub fn version(&self) -> &LazerVersion {
